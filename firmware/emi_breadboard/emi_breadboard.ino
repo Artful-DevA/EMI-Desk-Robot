@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <U8g2lib.h>
-#include <math.h>
 
 // ============================================================
 // EMI - Breadboard Personality Prototype
@@ -10,31 +9,54 @@
 // TTP223 touch sensor on GPIO 27
 //
 // Version:
-// - quick pet attention
-// - slow petting drift
-// - no jitter
-// - no vertical bouncing
+// - richer non-repetitive idle behavior
+// - quick upward attention when petting starts
+// - partial contented eye-close on every real pat
+// - deeper relaxed blink after several pats
+// - no vertical petting bounce
+// - tiny slow petting drift only
 // ============================================================
+
+
+// ------------------------------------------------------------
+// OLED
+// ------------------------------------------------------------
 
 U8G2_SH1106_128X64_NONAME_F_HW_I2C display(
   U8G2_R0,
   U8X8_PIN_NONE
 );
 
+
+// ------------------------------------------------------------
+// PINS
+// ------------------------------------------------------------
+
 const int TOUCH_PIN = 27;
 
-const int EYE_WIDTH  = 23;
+
+// ------------------------------------------------------------
+// EYE GEOMETRY
+// ------------------------------------------------------------
+
+const int EYE_WIDTH = 23;
 const int EYE_HEIGHT = 31;
 
-const int LEFT_EYE_X  = 24;
+const int LEFT_EYE_X = 24;
 const int RIGHT_EYE_X = 81;
 const int EYE_CENTER_Y = 32;
+
+
+// ------------------------------------------------------------
+// GAZE
+// ------------------------------------------------------------
 
 float gazeX = 0.0f;
 float gazeY = 0.0f;
 
 float gazeStartX = 0.0f;
 float gazeStartY = 0.0f;
+
 float gazeTargetX = 0.0f;
 float gazeTargetY = 0.0f;
 
@@ -42,20 +64,45 @@ bool gazeMoving = false;
 
 unsigned long gazeStartTime = 0;
 unsigned long gazeDuration = 100;
-unsigned long nextIdleGaze = 0;
+
+
+// ------------------------------------------------------------
+// IDLE BEHAVIOR
+// ------------------------------------------------------------
+
+unsigned long nextIdleAction = 0;
+
+enum IdleFollowup {
+  IDLE_FOLLOWUP_NONE,
+  IDLE_FOLLOWUP_CORRECTION,
+  IDLE_FOLLOWUP_RETURN_CENTER
+};
+
+IdleFollowup idleFollowup = IDLE_FOLLOWUP_NONE;
+unsigned long idleFollowupTime = 0;
+
+
+// ------------------------------------------------------------
+// BLINKING
+// ------------------------------------------------------------
 
 bool blinking = false;
 
 unsigned long blinkStartTime = 0;
 
 int blinkCloseTime = 65;
-int blinkHoldTime  = 20;
-int blinkOpenTime  = 85;
+int blinkHoldTime = 18;
+int blinkOpenTime = 90;
 
 unsigned long nextBlinkTime = 0;
 
 bool doubleBlinkPending = false;
 unsigned long secondBlinkTime = 0;
+
+
+// ------------------------------------------------------------
+// TOUCH / PETTING
+// ------------------------------------------------------------
 
 bool rawTouch = false;
 bool previousRawTouch = false;
@@ -66,121 +113,291 @@ unsigned long touchChangedAt = 0;
 const unsigned long TOUCH_DEBOUNCE = 30;
 const unsigned long PET_GRACE_TIME = 2200;
 
+// Ignore extremely fast re-triggers from contact chatter.
+const unsigned long MIN_PAT_INTERVAL = 260;
+
 bool petting = false;
 
 unsigned long lastTouchTime = 0;
-unsigned long petStartTime = 0;
+unsigned long lastRecognizedPat = 0;
 
 int patCount = 0;
 
+
+// ------------------------------------------------------------
+// PETTING MOTION
+// ------------------------------------------------------------
+
 unsigned long nextPetDrift = 0;
 
-bool patPulseActive = false;
-unsigned long patPulseStart = 0;
-const unsigned long PAT_PULSE_DURATION = 520;
+
+// ------------------------------------------------------------
+// CONTENTED PARTIAL EYE-CLOSE ON EACH PAT
+// ------------------------------------------------------------
+
+bool petStrokeActive = false;
+unsigned long petStrokeStart = 0;
+
+const unsigned long PET_STROKE_DURATION = 360;
+
+// 0.0 = fully open
+// 1.0 = completely closed
+const float PET_STROKE_MAX_CLOSURE = 0.48f;
+
+
+// ------------------------------------------------------------
+// DEEPER RELAXED BLINK
+// ------------------------------------------------------------
 
 bool relaxedBlinkPending = false;
 bool relaxedBlinkDone = false;
 
+
+// ------------------------------------------------------------
+// HELPERS
+// ------------------------------------------------------------
+
 float smoothStep(float t) {
+
   if (t < 0.0f) t = 0.0f;
   if (t > 1.0f) t = 1.0f;
+
   return t * t * (3.0f - 2.0f * t);
 }
 
-float getBlinkClosure() {
-  if (!blinking) return 0.0f;
 
-  unsigned long elapsed = millis() - blinkStartTime;
-  int totalTime = blinkCloseTime + blinkHoldTime + blinkOpenTime;
+float clampFloat(
+  float value,
+  float minimum,
+  float maximum
+) {
 
-  if (elapsed < blinkCloseTime) {
-    float t = (float)elapsed / (float)blinkCloseTime;
-    return smoothStep(t);
-  }
+  if (value < minimum) return minimum;
+  if (value > maximum) return maximum;
 
-  if (elapsed < blinkCloseTime + blinkHoldTime) {
-    return 1.0f;
-  }
-
-  if (elapsed < totalTime) {
-    float t =
-      (float)(elapsed - blinkCloseTime - blinkHoldTime) /
-      (float)blinkOpenTime;
-
-    return 1.0f - smoothStep(t);
-  }
-
-  blinking = false;
-  return 0.0f;
+  return value;
 }
 
-float getPatPulse() {
-  if (!patPulseActive) return 0.0f;
 
-  unsigned long elapsed = millis() - patPulseStart;
+// ------------------------------------------------------------
+// NORMAL / RELAXED BLINK CLOSURE
+// ------------------------------------------------------------
 
-  if (elapsed >= PAT_PULSE_DURATION) {
-    patPulseActive = false;
+float getBlinkClosure() {
+
+  if (!blinking) {
     return 0.0f;
   }
 
-  float t = (float)elapsed / (float)PAT_PULSE_DURATION;
-  return sinf(t * PI);
+  unsigned long elapsed =
+    millis() - blinkStartTime;
+
+  int totalTime =
+    blinkCloseTime +
+    blinkHoldTime +
+    blinkOpenTime;
+
+
+  // Closing
+  if (elapsed < (unsigned long)blinkCloseTime) {
+
+    float t =
+      (float)elapsed /
+      (float)blinkCloseTime;
+
+    return smoothStep(t);
+  }
+
+
+  // Closed
+  if (
+    elapsed <
+    (unsigned long)(
+      blinkCloseTime +
+      blinkHoldTime
+    )
+  ) {
+
+    return 1.0f;
+  }
+
+
+  // Opening
+  if (elapsed < (unsigned long)totalTime) {
+
+    float t =
+      (float)(
+        elapsed -
+        blinkCloseTime -
+        blinkHoldTime
+      )
+      /
+      (float)blinkOpenTime;
+
+    return
+      1.0f -
+      smoothStep(t);
+  }
+
+
+  blinking = false;
+
+  return 0.0f;
 }
 
+
+// ------------------------------------------------------------
+// CONTENTED PAT CLOSURE
+// ------------------------------------------------------------
+
+float getPetStrokeClosure() {
+
+  if (!petStrokeActive) {
+    return 0.0f;
+  }
+
+  unsigned long elapsed =
+    millis() - petStrokeStart;
+
+
+  if (elapsed >= PET_STROKE_DURATION) {
+
+    petStrokeActive = false;
+
+    return 0.0f;
+  }
+
+
+  float t =
+    (float)elapsed /
+    (float)PET_STROKE_DURATION;
+
+
+  // Quick soft close for the first 30%.
+  if (t < 0.30f) {
+
+    float closeT =
+      t / 0.30f;
+
+    return
+      PET_STROKE_MAX_CLOSURE *
+      smoothStep(closeT);
+  }
+
+
+  // Brief contented hold.
+  if (t < 0.46f) {
+
+    return
+      PET_STROKE_MAX_CLOSURE;
+  }
+
+
+  // Slower reopening.
+  float openT =
+    (t - 0.46f) /
+    0.54f;
+
+  return
+    PET_STROKE_MAX_CLOSURE *
+    (
+      1.0f -
+      smoothStep(openT)
+    );
+}
+
+
+// ------------------------------------------------------------
+// DRAW EMI
+// ------------------------------------------------------------
+
 void drawEmi() {
+
   display.clearBuffer();
 
-  float closure = getBlinkClosure();
+
+  float blinkClosure =
+    getBlinkClosure();
+
+  float petClosure =
+    getPetStrokeClosure();
+
+
+  // Whichever expression is more closed wins.
+  float closure =
+    max(
+      blinkClosure,
+      petClosure
+    );
+
 
   int eyeHeight =
     EYE_HEIGHT -
-    (int)(closure * (EYE_HEIGHT - 4));
+    (int)(
+      closure *
+      (EYE_HEIGHT - 4)
+    );
+
 
   int inward = 0;
 
+
   if (petting) {
+
+    // Slightly softer / closer expression.
     inward = 2;
   }
 
-  float patPulse = getPatPulse();
-
-  if (patPulse > 0.0f) {
-    inward += (int)round(1.5f * patPulse);
-  }
 
   int y =
     EYE_CENTER_Y -
     eyeHeight / 2 +
     round(gazeY);
 
-  int radius = min(7, eyeHeight / 2);
+
+  int radius =
+    min(
+      7,
+      eyeHeight / 2
+    );
+
 
   display.drawRBox(
-    LEFT_EYE_X + round(gazeX) + inward,
+    LEFT_EYE_X +
+      round(gazeX) +
+      inward,
     y,
     EYE_WIDTH,
     eyeHeight,
     radius
   );
 
+
   display.drawRBox(
-    RIGHT_EYE_X + round(gazeX) - inward,
+    RIGHT_EYE_X +
+      round(gazeX) -
+      inward,
     y,
     EYE_WIDTH,
     eyeHeight,
     radius
   );
+
 
   display.sendBuffer();
 }
+
+
+// ------------------------------------------------------------
+// GAZE MOVEMENT
+// ------------------------------------------------------------
 
 void startGaze(
   float targetX,
   float targetY,
   unsigned long duration
 ) {
+
   gazeStartX = gazeX;
   gazeStartY = gazeY;
 
@@ -193,276 +410,731 @@ void startGaze(
   gazeMoving = true;
 }
 
+
 void updateGaze() {
-  if (!gazeMoving) return;
 
-  unsigned long elapsed = millis() - gazeStartTime;
-
-  if (elapsed >= gazeDuration) {
-    gazeX = gazeTargetX;
-    gazeY = gazeTargetY;
-    gazeMoving = false;
+  if (!gazeMoving) {
     return;
   }
+
+
+  unsigned long elapsed =
+    millis() -
+    gazeStartTime;
+
+
+  if (elapsed >= gazeDuration) {
+
+    gazeX = gazeTargetX;
+    gazeY = gazeTargetY;
+
+    gazeMoving = false;
+
+    return;
+  }
+
 
   float t =
     (float)elapsed /
     (float)gazeDuration;
 
-  float eased = smoothStep(t);
+
+  float eased =
+    smoothStep(t);
+
 
   gazeX =
     gazeStartX +
-    (gazeTargetX - gazeStartX) * eased;
+    (
+      gazeTargetX -
+      gazeStartX
+    )
+    * eased;
+
 
   gazeY =
     gazeStartY +
-    (gazeTargetY - gazeStartY) * eased;
+    (
+      gazeTargetY -
+      gazeStartY
+    )
+    * eased;
 }
 
+
+// ------------------------------------------------------------
+// BLINKS
+// ------------------------------------------------------------
+
 void startBlink() {
-  if (blinking) return;
+
+  if (blinking) {
+    return;
+  }
+
 
   blinking = true;
 
   blinkCloseTime = 65;
-  blinkHoldTime  = 18;
-  blinkOpenTime  = 90;
+  blinkHoldTime = 18;
+  blinkOpenTime = 95;
 
-  blinkStartTime = millis();
+  blinkStartTime =
+    millis();
 
-  if (random(100) < 5) {
+
+  // Very rare double blink.
+  if (random(100) < 3) {
+
     doubleBlinkPending = true;
-    secondBlinkTime = millis() + 330;
+
+    secondBlinkTime =
+      millis() + 340;
   }
 }
 
+
 void startRelaxedBlink() {
-  if (blinking) return;
+
+  if (blinking) {
+    return;
+  }
+
 
   blinking = true;
 
-  blinkCloseTime = 105;
-  blinkHoldTime  = 45;
-  blinkOpenTime  = 160;
+  blinkCloseTime = 115;
+  blinkHoldTime = 65;
+  blinkOpenTime = 190;
 
-  blinkStartTime = millis();
+  blinkStartTime =
+    millis();
 }
+
 
 void scheduleNextBlink() {
+
+  // Less repetitive than before.
   nextBlinkTime =
-    millis() +
-    random(7000, 13000);
+    millis()
+    + random(
+        8500,
+        16500
+      );
 }
 
-void chooseIdleGaze() {
-  int roll = random(100);
 
-  float targetX;
-  float targetY;
+// ------------------------------------------------------------
+// IDLE PERSONALITY
+// ------------------------------------------------------------
 
-  if (roll < 65) {
-    targetX = random(-6, 7);
-    targetY = random(-4, 5);
+void chooseIdleAction() {
+
+  unsigned long now =
+    millis();
+
+
+  idleFollowup =
+    IDLE_FOLLOWUP_NONE;
+
+
+  int roll =
+    random(100);
+
+
+  // ----------------------------------------------------------
+  // 0-31:
+  // Tiny micro-saccade from the current position.
+  // ----------------------------------------------------------
+
+  if (roll < 32) {
+
+    float targetX =
+      clampFloat(
+        gazeX +
+        random(-3, 4),
+        -18,
+        18
+      );
+
+
+    float targetY =
+      clampFloat(
+        gazeY +
+        random(-2, 3),
+        -13,
+        10
+      );
+
+
+    startGaze(
+      targetX,
+      targetY,
+      random(
+        75,
+        120
+      )
+    );
+
+
+    nextIdleAction =
+      now
+      + random(
+          2600,
+          5200
+        );
+
+    return;
   }
-  else if (roll < 93) {
-    targetX = random(-13, 14);
-    targetY = random(-8, 8);
+
+
+  // ----------------------------------------------------------
+  // 32-61:
+  // Focus on something, then make a tiny correction.
+  // ----------------------------------------------------------
+
+  if (roll < 62) {
+
+    float targetX =
+      random(-13, 14);
+
+    float targetY =
+      random(-8, 8);
+
+
+    unsigned long moveTime =
+      random(
+        90,
+        150
+      );
+
+
+    startGaze(
+      targetX,
+      targetY,
+      moveTime
+    );
+
+
+    idleFollowup =
+      IDLE_FOLLOWUP_CORRECTION;
+
+
+    idleFollowupTime =
+      now +
+      moveTime +
+      random(
+        350,
+        850
+      );
+
+
+    nextIdleAction =
+      now
+      + random(
+          3200,
+          6000
+        );
+
+    return;
   }
-  else {
-    targetX = random(-18, 19);
-    targetY = random(-13, 11);
+
+
+  // ----------------------------------------------------------
+  // 62-77:
+  // Larger exploratory glance, then naturally settle back.
+  // ----------------------------------------------------------
+
+  if (roll < 78) {
+
+    float targetX;
+
+    if (random(2) == 0) {
+      targetX =
+        random(-18, -11);
+    }
+    else {
+      targetX =
+        random(11, 19);
+    }
+
+
+    float targetY =
+      random(-10, 9);
+
+
+    unsigned long moveTime =
+      random(
+        95,
+        160
+      );
+
+
+    startGaze(
+      targetX,
+      targetY,
+      moveTime
+    );
+
+
+    idleFollowup =
+      IDLE_FOLLOWUP_RETURN_CENTER;
+
+
+    idleFollowupTime =
+      now +
+      moveTime +
+      random(
+        900,
+        1800
+      );
+
+
+    nextIdleAction =
+      now
+      + random(
+          4500,
+          7200
+        );
+
+    return;
   }
+
+
+  // ----------------------------------------------------------
+  // 78-91:
+  // Do absolutely nothing for a while.
+  //
+  // Stillness is part of natural behavior.
+  // ----------------------------------------------------------
+
+  if (roll < 92) {
+
+    nextIdleAction =
+      now
+      + random(
+          4800,
+          8500
+        );
+
+    return;
+  }
+
+
+  // ----------------------------------------------------------
+  // 92-99:
+  // Slowly settle near center.
+  // ----------------------------------------------------------
 
   startGaze(
-    targetX,
-    targetY,
-    random(90, 155)
+    random(-4, 5),
+    random(-3, 4),
+    random(
+      180,
+      300
+    )
   );
 
-  nextIdleGaze =
-    millis() +
-    random(2200, 5500);
+
+  nextIdleAction =
+    now
+    + random(
+        3400,
+        6500
+      );
 }
 
-void beginPetting() {
-  petting = true;
-  patCount = 0;
 
-  petStartTime = millis();
+void updateIdleFollowup() {
+
+  if (
+    idleFollowup ==
+    IDLE_FOLLOWUP_NONE
+  ) {
+
+    return;
+  }
+
+
+  if (gazeMoving) {
+    return;
+  }
+
+
+  unsigned long now =
+    millis();
+
+
+  if (
+    now <
+    idleFollowupTime
+  ) {
+
+    return;
+  }
+
+
+  if (
+    idleFollowup ==
+    IDLE_FOLLOWUP_CORRECTION
+  ) {
+
+    // Tiny "second look" at the same thing.
+    startGaze(
+      clampFloat(
+        gazeX +
+        random(-2, 3),
+        -18,
+        18
+      ),
+      clampFloat(
+        gazeY +
+        random(-1, 2),
+        -13,
+        10
+      ),
+      random(
+        65,
+        105
+      )
+    );
+  }
+
+
+  else if (
+    idleFollowup ==
+    IDLE_FOLLOWUP_RETURN_CENTER
+  ) {
+
+    // Don't snap exactly to 0,0.
+    startGaze(
+      random(-5, 6),
+      random(-3, 4),
+      random(
+        130,
+        220
+      )
+    );
+  }
+
+
+  idleFollowup =
+    IDLE_FOLLOWUP_NONE;
+}
+
+
+// ------------------------------------------------------------
+// PETTING
+// ------------------------------------------------------------
+
+void beginPetting() {
+
+  petting = true;
+
+  patCount = 0;
 
   relaxedBlinkPending = false;
   relaxedBlinkDone = false;
 
-  patPulseActive = false;
+  idleFollowup =
+    IDLE_FOLLOWUP_NONE;
 
-  // Fast "EMI noticed me!" movement.
+
+  // Bring back the immediate "EMI noticed me" feeling.
+  //
+  // The touch debounce is already 30 ms,
+  // then the gaze itself only takes about 95 ms.
   startGaze(
     0,
     -15,
-    105
+    95
   );
 
+
   nextPetDrift =
-    millis() + 750;
+    millis() + 950;
 }
 
-void reactToPat() {
-  patCount++;
-  lastTouchTime = millis();
 
-  // Small inward acknowledgement without eye-jitter.
-  if (!patPulseActive) {
-    patPulseActive = true;
-    patPulseStart = millis();
+void reactToPat() {
+
+  unsigned long now =
+    millis();
+
+
+  // Reject fast sensor chatter, but allow normal separate strokes.
+  if (
+    lastRecognizedPat != 0 &&
+    now - lastRecognizedPat <
+    MIN_PAT_INTERVAL
+  ) {
+
+    return;
   }
 
+
+  lastRecognizedPat =
+    now;
+
+  lastTouchTime =
+    now;
+
+  patCount++;
+
+
+  // Every real stroke gets a smooth partial eye-close.
+  //
+  // This is the main "I like that" feedback.
+  petStrokeActive = true;
+  petStrokeStart = now;
+
+
+  // After several strokes, EMI also gives one deeper,
+  // slower relaxed blink.
   if (
     patCount >= 3 &&
     !relaxedBlinkDone
   ) {
+
     relaxedBlinkPending = true;
   }
 }
 
+
 void updatePettingMotion() {
-  if (!petting) return;
 
-  unsigned long now = millis();
+  if (!petting) {
+    return;
+  }
 
-  // Slow, tiny horizontal drift while gaze remains high.
+
+  unsigned long now =
+    millis();
+
+
+  // Very small horizontal attention changes.
+  // Never move vertically while already being petted.
   if (
     !gazeMoving &&
+    !petStrokeActive &&
     now >= nextPetDrift
   ) {
-    float targetX = random(-2, 3);
 
     startGaze(
-      targetX,
+      random(-2, 3),
       -15,
-      random(420, 700)
+      random(
+        450,
+        750
+      )
     );
 
+
     nextPetDrift =
-      now +
-      random(1000, 1900);
+      now
+      + random(
+          1400,
+          2400
+        );
   }
 }
 
+
 void endPetting() {
+
   petting = false;
+
   patCount = 0;
 
   relaxedBlinkPending = false;
   relaxedBlinkDone = false;
 
-  patPulseActive = false;
+  petStrokeActive = false;
 
+
+  // Calm return from the high petting gaze.
   startGaze(
-    0,
-    0,
-    380
+    random(-2, 3),
+    random(-1, 3),
+    420
   );
+
 
   scheduleNextBlink();
 
-  nextIdleGaze =
-    millis() +
-    random(1800, 3200);
+
+  nextIdleAction =
+    millis()
+    + random(
+        2000,
+        3800
+      );
 }
 
+
+// ------------------------------------------------------------
+// TOUCH INPUT
+// ------------------------------------------------------------
+
 void updateTouch() {
-  unsigned long now = millis();
+
+  unsigned long now =
+    millis();
+
 
   rawTouch =
-    digitalRead(TOUCH_PIN);
+    digitalRead(
+      TOUCH_PIN
+    );
+
 
   if (
     rawTouch !=
     previousRawTouch
   ) {
-    previousRawTouch = rawTouch;
-    touchChangedAt = now;
+
+    previousRawTouch =
+      rawTouch;
+
+    touchChangedAt =
+      now;
   }
+
 
   if (
     now - touchChangedAt >
     TOUCH_DEBOUNCE
   ) {
+
     if (
       stableTouch !=
       rawTouch
     ) {
-      stableTouch = rawTouch;
 
+      stableTouch =
+        rawTouch;
+
+
+      // Rising edge = a new physical contact / stroke.
       if (stableTouch) {
+
         if (!petting) {
+
           beginPetting();
         }
+
 
         reactToPat();
       }
     }
   }
 
+
+  // Holding the pad keeps the overall petting session alive.
   if (stableTouch) {
-    lastTouchTime = now;
+
+    lastTouchTime =
+      now;
   }
 
+
+  // Slow pats remain one continuous interaction.
   if (
     petting &&
     !stableTouch &&
     now - lastTouchTime >
     PET_GRACE_TIME
   ) {
+
     endPetting();
   }
 }
 
-void updateIdleBehaviour() {
-  if (petting) return;
 
-  unsigned long now = millis();
+// ------------------------------------------------------------
+// UPDATE IDLE
+// ------------------------------------------------------------
+
+void updateIdleBehaviour() {
+
+  if (petting) {
+    return;
+  }
+
+
+  unsigned long now =
+    millis();
+
+
+  updateIdleFollowup();
+
 
   if (
     !gazeMoving &&
-    now >= nextIdleGaze
+    idleFollowup ==
+      IDLE_FOLLOWUP_NONE &&
+    now >= nextIdleAction
   ) {
-    chooseIdleGaze();
+
+    chooseIdleAction();
   }
 
+
+  // Normal blink.
   if (
     !blinking &&
     now >= nextBlinkTime
   ) {
+
     startBlink();
+
     scheduleNextBlink();
   }
 
+
+  // Rare double blink.
   if (
     doubleBlinkPending &&
     !blinking &&
     now >= secondBlinkTime
   ) {
+
     doubleBlinkPending = false;
+
     startBlink();
   }
 }
 
-void updatePettingBehaviour() {
-  if (!petting) return;
 
-  unsigned long now = millis();
+// ------------------------------------------------------------
+// UPDATE PETTING
+// ------------------------------------------------------------
+
+void updatePettingBehaviour() {
+
+  if (!petting) {
+    return;
+  }
+
+
+  unsigned long now =
+    millis();
+
 
   updatePettingMotion();
 
+
+  // Wait until the latest partial pet eye-close has finished,
+  // then give the deeper blink after several strokes.
   if (
     relaxedBlinkPending &&
     !relaxedBlinkDone &&
     !blinking &&
-    now - lastTouchTime >
-    500
+    !petStrokeActive &&
+    now - lastRecognizedPat >
+    420
   ) {
+
     startRelaxedBlink();
 
     relaxedBlinkPending = false;
@@ -470,36 +1142,65 @@ void updatePettingBehaviour() {
   }
 }
 
+
+// ------------------------------------------------------------
+// SETUP
+// ------------------------------------------------------------
+
 void setup() {
-  Wire.begin(21, 22);
+
+  Wire.begin(
+    21,
+    22
+  );
+
 
   display.begin();
+
 
   pinMode(
     TOUCH_PIN,
     INPUT
   );
 
-  randomSeed(micros());
+
+  randomSeed(
+    micros()
+  );
+
 
   gazeX = 0;
   gazeY = 0;
 
+
   drawEmi();
 
-  nextIdleGaze =
-    millis() + 1600;
+
+  nextIdleAction =
+    millis() + 1700;
+
 
   scheduleNextBlink();
 }
 
+
+// ------------------------------------------------------------
+// MAIN LOOP
+// ------------------------------------------------------------
+
 void loop() {
+
   updateTouch();
+
   updateGaze();
+
   updateIdleBehaviour();
+
   updatePettingBehaviour();
 
   drawEmi();
 
+
+  // About 50 FPS.
   delay(20);
 }
