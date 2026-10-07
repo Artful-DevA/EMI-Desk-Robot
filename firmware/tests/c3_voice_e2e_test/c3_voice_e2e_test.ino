@@ -7,7 +7,7 @@
 #include "secrets.h"
 
 // ============================================================
-// EMI - C3 END-TO-END VOICE TEST v2
+// EMI - C3 END-TO-END VOICE TEST v3
 //
 // This temporary test isolates the voice path:
 //
@@ -42,15 +42,19 @@ static const i2s_port_t I2S_PORT = I2S_NUM_0;
 const int SAMPLE_RATE = 16000;
 const int BLOCK_SAMPLES = 256;
 
-const int PRE_ROLL_SAMPLES = 4096;
+// Half a second of pre-roll protects short wake phrases such as
+// "Emi time" from losing the beginning of the name.
+const int PRE_ROLL_SAMPLES = 8000;
 const int MAX_SAMPLES = SAMPLE_RATE * 3;
 const int MIN_SAMPLES = SAMPLE_RATE / 2;
 
 // About 2 seconds of quiet calibration after Wi-Fi is already connected.
 const int CALIBRATION_BLOCKS = 125;
 
-// Require about 240 ms of sustained speech-like energy.
-const int START_CONFIRM_BLOCKS = 15;
+// This is only an acoustic candidate trigger, NOT a speech detector.
+// Keep it quick so the first syllable of "Emi" is safely inside pre-roll.
+// The Pi's dedicated keyword spotter is the real wake-word authority.
+const int START_CONFIRM_BLOCKS = 8;
 
 // About 480 ms of quiet ends the phrase.
 const int END_SILENT_BLOCKS = 30;
@@ -62,7 +66,8 @@ const float RELEASE_MARGIN = 500.0f;
 const float MIN_START_THRESHOLD = 5000.0f;
 const float MIN_RELEASE_THRESHOLD = 4300.0f;
 
-const int PCM_GAIN = 4;
+// Do not amplify into hard 16-bit clipping before recognition.
+const int PCM_GAIN = 1;
 
 const unsigned long WIFI_CONNECT_TIMEOUT_MS = 15000;
 const unsigned long RETRY_PAUSE_MS = 2000;
@@ -740,12 +745,7 @@ void showHubResult(
     "NO_WAKE_WORD"
   ) {
     Serial.println(
-      "RESULT: speech heard, but no Emi/Emmy wake word."
-    );
-
-    showStatus(
-      "HEARD SPEECH",
-      "NO EMI"
+      "RESULT: no EMI wake word; ignored."
     );
   }
 
@@ -754,12 +754,7 @@ void showHubResult(
     "NO_SPEECH"
   ) {
     Serial.println(
-      "RESULT: Whisper found no speech."
-    );
-
-    showStatus(
-      "WHISPER",
-      "NO SPEECH"
+      "RESULT: no speech; ignored."
     );
   }
 
@@ -768,12 +763,7 @@ void showHubResult(
     "NO_MATCH"
   ) {
     Serial.println(
-      "RESULT: Emi wake word heard, but command did not match."
-    );
-
-    showStatus(
-      "EMI HEARD",
-      "NO COMMAND"
+      "RESULT: EMI wake detected, but command did not match."
     );
   }
 
@@ -781,15 +771,9 @@ void showHubResult(
     Serial.println(
       "RESULT: unknown hub response."
     );
-
-    showStatus(
-      "HUB",
-      "UNKNOWN"
-    );
   }
 
-  delay(1500);
-
+  // Failure/noise is intentionally invisible on the OLED.
   showStatus(
     "VOICE TEST",
     "READY"
@@ -915,13 +899,8 @@ void uploadCapture() {
       "RESULT: upload/transcription request failed."
     );
 
-    showStatus(
-      "HTTP ERROR",
-      "SEE SERIAL"
-    );
-
-    delay(1500);
-
+    // Network errors stay diagnostic-only; do not make ordinary
+    // acoustic noise look like a user-facing interaction.
     showStatus(
       "VOICE TEST",
       "READY"
@@ -971,13 +950,11 @@ void beginCapture() {
       preRoll[index];
   }
 
+  // Important: this means only "acoustic candidate".
+  // Do NOT change the OLED here. Typing/tapping can create acoustic
+  // candidates and must never look like Emi has started listening.
   Serial.println(
-    "VOICE: speech start"
-  );
-
-  showStatus(
-    "VOICE TEST",
-    "LISTENING..."
+    "AUDIO: candidate start"
   );
 }
 
@@ -986,7 +963,7 @@ void finishCapture() {
   capturing = false;
 
   Serial.print(
-    "VOICE: speech end. samples="
+    "AUDIO: candidate end. samples="
   );
 
   Serial.println(
