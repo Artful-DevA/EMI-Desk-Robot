@@ -210,7 +210,10 @@ Planned capabilities:
 - preferences
 - explicit memory write/delete commands only
 - ordinary phrases containing words like "remember" or "forget" must never trigger persistent memory changes
-- memory write/delete commands should use longer, unmistakable command phrases and explicit confirmation
+- memory write/delete commands must use longer, unmistakable command phrases
+- every persistent-memory write requires a second explicit "confirm save" step before anything is written
+- every persistent-memory deletion requires a second explicit "confirm delete" step before anything is removed
+- if confirmation is missing, ambiguous, or times out, no persistent-memory change occurs
 - confidence levels
 - source/provenance
 - last-used / last-confirmed timestamps
