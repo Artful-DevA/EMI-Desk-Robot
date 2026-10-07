@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **07:56:48 tracked so far** |
-| **Current exact session** | **ACTIVE - 06:06:00 at latest checkpoint** |
+| **Exact tracked development time** | **08:03:52 tracked so far** |
+| **Current exact session** | **ACTIVE - 06:13:04 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 06:06:00** | Work resumed after the break |
-| **Total active tracked work** | **07:56:48** | Break excluded |
+| 2 | **ACTIVE - 06:13:04** | Work resumed after the break |
+| **Total active tracked work** | **08:03:52** | Break excluded |
 
 ---
 
@@ -594,6 +594,24 @@ The service uses Silero v6.2.0 with a slightly conservative threshold, short min
 The installer now downloads the official VAD model through whisper.cpp's own downloader if it is missing.
 
 **Result:** keyboard clicks and other non-speech sounds no longer have to be solved with increasingly fragile ESP32 loudness thresholds. The Pi now has a real speech/non-speech gate before command transcription.
+
+---
+
+# 2026-10-08 - I stopped asking Whisper to recognize EMI
+
+The latest test made the architectural problem obvious. I could say "EMI time" clearly and the acoustic detector would capture the phrase, but Whisper would often return "no EMI". At the same time, typing could still make the diagnostic screen say LISTENING even though no one had spoken.
+
+Those are two separate problems, and I removed both assumptions.
+
+First, I added a dedicated local keyword spotter on the Raspberry Pi using sherpa-onnx. It is an open-vocabulary KWS model, so I can explicitly configure the wake name EMI without training a custom neural network. The raw WAV stays in RAM. If the keyword spotter does not hear EMI, the hub rejects the clip before Whisper even runs.
+
+If the keyword spotter does hear EMI, Whisper only has to understand the command portion. This means a transcription of just "time" is now enough because the independent acoustic wake gate has already proven that EMI was spoken.
+
+Second, I changed the C3 diagnostic UI. Its cheap energy detector is now correctly treated as only an "acoustic candidate" trigger. It no longer changes the OLED to LISTENING or WHISPER just because typing, tapping, or another loud sound crossed a threshold. Failed/no-wake candidates remain invisible to the user.
+
+I also increased pre-roll to about half a second, made candidate triggering faster, and removed the 4x PCM gain that could hard-clip loud samples.
+
+**Result:** the wake name is no longer hostage to tiny.en spelling, and random desk noise no longer looks like EMI is actively listening.
 
 ---
 
