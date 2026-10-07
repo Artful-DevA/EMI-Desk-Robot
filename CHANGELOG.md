@@ -3,6 +3,15 @@
 ### Changed
 
 - upgraded EMI Hub to v0.2
+- accepts casual greetings before EMI such as `yo`, `hey`, `hi`, `hello`, `ok`, and `okay`
+- accepts short requests such as `Yo Emi time` and `Yo Emi time is?`
+- keeps the command parser deterministic instead of using fuzzy intent matching for execution
+
+## 2026-10-07 - More natural time phrasing in EMI Hub
+
+### Changed
+
+- upgraded EMI Hub to v0.2
 - replaced exact full-sentence regex matching with a deterministic phrase-normalization step
 - accepts casual greetings before EMI such as `yo`, `hey`, `hi`, `hello`, `ok`, and `okay`
 - accepts short time requests such as `Yo Emi time` and `Yo Emi time is?`
