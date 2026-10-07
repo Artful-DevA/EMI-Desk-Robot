@@ -14,6 +14,22 @@ The ESP32 itself does not need to run Tailscale.
 
 ## Home topology
 
+### Current prototype command transport
+
+The current ESP32-C3 prototype uses an outbound polling connection to the Raspberry Pi hub:
+
+1. The C3 joins the home 2.4 GHz Wi-Fi network.
+2. The Pi hub listens on port 17840.
+3. The local-only intent parser queues allow-listed commands such as `SHOW_TIME HH:MM`.
+4. The C3 polls `/device/command` roughly four times per second.
+5. The device endpoint requires a randomly generated shared token.
+6. Wi-Fi credentials and the token live only in local secret files and are excluded from Git.
+
+This avoids needing the Pi to know the C3's changing DHCP address. The same C3 -> Pi direction can later carry microphone audio.
+
+The current HTTP transport is for the trusted home-LAN prototype and only carries low-risk allow-listed commands. It must not be exposed directly to the internet; stronger encrypted transport should be used before privileged control is added.
+
+
 At home:
 
 1. EMI joins home Wi-Fi.
