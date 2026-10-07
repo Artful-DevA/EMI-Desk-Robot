@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **01:12:41 tracked so far** |
-| **Current exact session** | **ACTIVE - 01:12:41 at latest checkpoint** |
+| **Exact tracked development time** | **01:31:42 tracked so far** |
+| **Current exact session** | **ACTIVE - 01:31:42 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
 | **Completed exact sessions** | 0 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -28,7 +28,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Session | Exact duration | Notes |
 | --- | --- | --- |
-| 1 | ACTIVE - 01:12:41 at latest checkpoint | Exact tracking enabled; session is still running |
+| 1 | ACTIVE - 01:31:42 at latest checkpoint | Exact tracking enabled; session is still running |
 
 ## Backstory - before the tracked C3 migration session
 
@@ -298,6 +298,20 @@ The networking runs in a separate FreeRTOS task so a sleepy network connection s
 Private Wi-Fi credentials and the device token live in local files excluded from Git.
 
 **Result:** after local configuration and flashing, the existing curl time test should make the physical OLED perform the clock morph without Serial Monitor.
+
+---
+
+## 2026-10-07 - Wi-Fi tried to reconnect while it was already reconnecting
+
+The first C3 network build produced a repeating ESP-IDF message:
+
+> `wifi:sta is connecting, return error`
+
+The cause was our own retry loop: the C3 started a Wi-Fi connection, then called `WiFi.reconnect()` every few seconds even while the first attempt was still active.
+
+The network task now owns the full connection lifecycle. It waits up to 15 seconds for an attempt, cleanly resets a timed-out attempt, pauses briefly, and then starts a new one.
+
+**Result:** no more self-inflicted reconnect spam; the next test can distinguish a real SSID/password/network problem from a retry-loop bug.
 
 ---
 
