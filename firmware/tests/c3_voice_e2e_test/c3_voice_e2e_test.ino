@@ -794,18 +794,7 @@ void uploadCapture() {
       "Capture too short; ignored."
     );
 
-    showStatus(
-      "VOICE TEST",
-      "TOO SHORT"
-    );
-
-    delay(800);
-
-    showStatus(
-      "VOICE TEST",
-      "READY"
-    );
-
+    // Too-short acoustic candidates stay invisible on the OLED.
     return;
   }
 
@@ -858,11 +847,8 @@ void uploadCapture() {
     "audio/wav"
   );
 
-  showStatus(
-    "VOICE TEST",
-    "WHISPER..."
-  );
-
+  // Do not change the OLED while checking an acoustic candidate.
+  // Typing/tapping may create candidates but must remain invisible.
   Serial.print(
     "Uploading "
   );
@@ -1260,10 +1246,10 @@ void setup() {
     "EMI VOICE TEST READY"
   );
   Serial.println(
-    "Stay quiet first, then say:"
+    "OLED stays READY for random noise."
   );
   Serial.println(
-    "Emi, what's the time?"
+    "Try: Emi time   OR   Time Emi"
   );
   Serial.println(
     "================================"
