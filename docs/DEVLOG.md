@@ -18,7 +18,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 | **Previous controller** | ESP32 DevKit V1 |
 | **Verified hardware** | SH1106 OLED, TTP223 touch, I2S microphone |
 | **Current physical form** | Cable Engineering Edition |
-| **Current software milestone** | Pi 400 local Whisper verified + EMI Hub v0.1 time intent |
+| **Current software milestone** | Pi 400 local Whisper verified + EMI Hub v0.2 natural time intent |
 | **Next major milestone** | Connect C3 to the hub, then stream mic audio in RAM for spoken time requests |
 | **Last updated** | 2026-10-07 |
 
@@ -239,6 +239,16 @@ Touching EMI during the clock dismisses it and returns directly to interaction.
 The initial 4.5-second clock hold felt too long. It was reduced to **2.0 seconds**, making the whole thing feel like a quick glance instead of opening an app.
 
 **Result:** the screen-side half of "what time is it?" exists.
+
+---
+
+## 2026-10-07 - Teaching the time parser to loosen up
+
+The first hub parser was intentionally strict, but it turned out to be too literal. It understood full phrases like "Emi, can you tell me the time?" but rejected perfectly human requests like "Yo Emi time" and "Yo Emi time is?"
+
+EMI Hub v0.2 now strips harmless greeting/wake-word filler and then checks the remaining phrase against a deterministic set of accepted time requests.
+
+**Result:** casual time requests now map to the same safe `TIME` intent.
 
 ---
 
