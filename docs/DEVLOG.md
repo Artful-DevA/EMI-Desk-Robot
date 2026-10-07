@@ -678,12 +678,3 @@ The privacy requirement is strict:
 Once that path is working, the existing time feature can become a real spoken interaction instead of a curl command.
 
 ---
-
-## Running joke counter
-
-- Unsoldered headers mistaken for a software problem: **1**
-- Windows driver disappearances: **1**
-- ESP32 boards accidentally becoming Ozobots: **1**
-- Diagnostic faces immediately declared awful: **1**
-- Wi-Fi failures caused by a tiny board needing less transmit power: **1 extremely specific one**
-- Structural jumper cables: **many**
