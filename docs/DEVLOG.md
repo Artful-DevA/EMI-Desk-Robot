@@ -18,8 +18,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 | **Previous controller** | ESP32 DevKit V1 |
 | **Verified hardware** | SH1106 OLED, TTP223 touch, I2S microphone |
 | **Current physical form** | Cable Engineering Edition |
-| **Current software milestone** | Pi 400 local Whisper verified + EMI Hub v0.2 natural time intent |
-| **Next major milestone** | Connect C3 to the hub, then stream mic audio in RAM for spoken time requests |
+| **Current software milestone** | Authenticated Pi -> C3 command bridge implemented; hardware test pending |
+| **Next major milestone** | Validate physical Pi -> C3 clock trigger, then stream mic audio in RAM |
 | **Last updated** | 2026-10-07 |
 
 > **Privacy-safe exact-time rule:** the public dev log records only durations, never the clock time when work started or ended. During a build session, exact timestamps may be used privately to calculate the duration, but only the resulting duration is published. The older ~45-minute estimate remains legacy history and is never mixed into the exact total.
@@ -284,6 +284,20 @@ Examples include:
 The service does not log the original sentence.
 
 **Result:** local STT is proven and the text-to-time-command half of the Pi hub now exists.
+
+---
+
+## 2026-10-07 - The Pi can finally hand EMI a command
+
+The project now has its first real Pi-to-robot transport instead of manually typing `SHOW_TIME` into Serial Monitor.
+
+The hub queues the display command, while the C3 makes an authenticated outbound request for pending work. This was chosen instead of making the Pi chase the C3's DHCP address. It also points in the same direction as the next feature: microphone audio travelling from the C3 to the Pi.
+
+The networking runs in a separate FreeRTOS task so a sleepy network connection should not deliberately turn EMI's eye animation into a slideshow.
+
+Private Wi-Fi credentials and the device token live in local files excluded from Git.
+
+**Result:** after local configuration and flashing, the existing curl time test should make the physical OLED perform the clock morph without Serial Monitor.
 
 ---
 
