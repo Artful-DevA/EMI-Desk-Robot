@@ -29,7 +29,7 @@ if not SHARED_TOKEN:
     raise RuntimeError("EMI_SHARED_TOKEN is required")
 
 GREETING_WORDS = {"hey", "yo", "hi", "hello", "okay", "ok"}
-WAKE_WORDS = {"emi", "emmy", "emmie", "amy"}
+WAKE_WORDS = {"emi", "emmy", "emmie", "emmi"}
 POLITE_WORDS = {"please", "just"}
 
 TIME_FORMS = {
@@ -71,7 +71,10 @@ def has_emi_wake_word(text: str) -> bool:
     while tokens and tokens[0] in GREETING_WORDS:
         tokens.pop(0)
 
-    return bool(tokens) and tokens[0] in WAKE_WORDS
+    return any(
+        token in WAKE_WORDS
+        for token in tokens
+    )
 
 
 def normalize_command_phrase(text: str) -> str:
@@ -81,8 +84,16 @@ def normalize_command_phrase(text: str) -> str:
     while tokens and tokens[0] in GREETING_WORDS:
         tokens.pop(0)
 
-    if tokens and tokens[0] in WAKE_WORDS:
-        tokens.pop(0)
+    # The explicit wake address may appear at the beginning, end,
+    # or naturally inside the phrase:
+    #   "Emi, what time is it?"
+    #   "What time is it, Emi?"
+    #   "Time, Emi."
+    tokens = [
+        token
+        for token in tokens
+        if token not in WAKE_WORDS
+    ]
 
     while tokens and tokens[0] in POLITE_WORDS:
         tokens.pop(0)
@@ -214,7 +225,7 @@ def transcribe_wav_in_memory(wav_bytes: bytes) -> str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "emi-hub/0.5"
+    server_version = "emi-hub/0.6"
 
     def _send_bytes(self, status: int, body: bytes, content_type: str):
         self.send_response(status)
@@ -286,7 +297,7 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "service": "emi-hub",
-                    "version": "0.5",
+                    "version": "0.6",
                     "whisper": (
                         f"{WHISPER_HOST}:"
                         f"{WHISPER_PORT}"
@@ -617,7 +628,7 @@ def main():
     )
 
     print(
-        f"emi-hub 0.5 listening on "
+        f"emi-hub 0.6 listening on "
         f"{HOST}:{PORT}",
         flush=True,
     )
