@@ -12,20 +12,37 @@ EMI should use different transports for different jobs instead of forcing everyt
 
 The ESP32 itself does not need to run Tailscale.
 
+
+## Current Wi-Fi hardware note
+
+The active C3 can scan the correct 2.4 GHz AP normally, but at the previous transmit-power behavior it repeatedly failed authentication with `AUTH_EXPIRE (2)`.
+
+The verified board-specific workaround is:
+
+`WiFi.setTxPower(WIFI_POWER_8_5dBm)`
+
+That setting is now part of the normal firmware and should be preserved unless the controller hardware changes.
+
 ## Home topology
 
 ### Current prototype command transport
 
-The current ESP32-C3 prototype uses an outbound polling connection to the Raspberry Pi hub:
+The current ESP32-C3 prototype uses an outbound polling connection to the Raspberry Pi hub, and this path has now been **physically validated end-to-end**.
 
 1. The C3 joins the home 2.4 GHz Wi-Fi network.
-2. The Pi hub listens on port 17840.
-3. The local-only intent parser queues allow-listed commands such as `SHOW_TIME HH:MM`.
-4. The C3 polls `/device/command` roughly four times per second.
-5. The device endpoint requires a randomly generated shared token.
-6. Wi-Fi credentials and the token live only in local secret files and are excluded from Git.
+2. The current board applies `WIFI_POWER_8_5dBm`, which is required for reliable authentication on this specific ESP32-C3 Super Mini.
+3. The Pi hub listens on port 17840.
+4. The local-only intent parser queues allow-listed commands such as `SHOW_TIME HH:MM`.
+5. The C3 polls `/device/command` roughly four times per second.
+6. The device endpoint requires a randomly generated shared token.
+7. Wi-Fi credentials and the token live only in local secret files and are excluded from Git.
+8. The C3 passes received commands into the face loop through a FreeRTOS queue.
 
-This avoids needing the Pi to know the C3's changing DHCP address. The same C3 -> Pi direction can later carry microphone audio.
+The first proven physical flow is:
+
+**Pi intent request -> hub queue -> authenticated C3 poll -> C3 command parser -> OLED clock animation**
+
+This avoids needing the Pi to know the C3's changing DHCP address. The same C3 -> Pi direction is the planned path for live microphone audio.
 
 The current HTTP transport is for the trusted home-LAN prototype and only carries low-risk allow-listed commands. It must not be exposed directly to the internet; stronger encrypted transport should be used before privileged control is added.
 
