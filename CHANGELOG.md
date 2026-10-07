@@ -2,6 +2,26 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-08 - Replace short EMI wake KWS with constrained Vosk commands
+
+### Changed
+
+- EMI Hub upgraded to v0.9
+- removed sherpa-onnx as the active wake-word gate for the current time-command milestone
+- the upstream sherpa-onnx KWS stack has poor recall on very short English keywords; `Emi` / `Emmy` is exactly the kind of short keyword that can fail even after score/threshold tuning
+- added a small offline Vosk recognizer on the Raspberry Pi with an intentionally constrained command grammar
+- current accepted acoustic forms include `Emmy time`, `Time Emmy`, `Emmy what time is it`, and equivalent time forms
+- Vosk's ordinary English spelling `Emmy` is treated as the exact acoustic alias for the robot name EMI
+- command execution requires both the wake token and the time token plus a minimum word-confidence floor
+- non-command/noise clips fall through to `NO_WAKE_WORD` and do not execute anything
+- Whisper remains installed for future free-form timer/reminder text, but it is no longer responsible for recognizing the EMI wake name for this milestone
+
+### Why
+
+- repeatedly tuning a standalone short-keyword detector was the wrong approach for the two-syllable name EMI
+- the constrained grammar narrows the recognizer to the exact phrases currently being tested and gives the wake name useful command context
+- the goal is now to make `Emi time` / `Time Emi` reliable first, then expand the grammar deliberately
+
 ## 2026-10-08 - Add dedicated local EMI keyword spotting
 
 ### Changed
