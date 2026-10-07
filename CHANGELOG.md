@@ -1,4 +1,14 @@
-# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Hub startup check and live time tracking
+# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Fix C3 Wi-Fi connection retry loop
+
+### Fixed
+
+- stopped calling `WiFi.reconnect()` while the ESP32-C3 was already in the middle of connecting
+- moved Wi-Fi connection ownership entirely into the background network task
+- disabled the Arduino auto-reconnect path so two reconnect mechanisms do not fight each other
+- connection attempts now get up to 15 seconds before being reset and retried
+- Serial Monitor now prints a clear connection-attempt message and timeout status instead of repeatedly spamming `wifi:sta is connecting, return error`
+
+## 2026-10-07 - Hub startup check and live time tracking
 
 ### Changed
 
