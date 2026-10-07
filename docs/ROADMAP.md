@@ -46,6 +46,9 @@ Goal: turn the already-verified microphone into a private local speech path.
 - [x] build `whisper.cpp` on Raspberry Pi
 - [x] benchmark `tiny.en` faster than real time on test audio
 - [x] deterministic Pi intent parser
+- [x] localhost-only whisper.cpp server
+- [x] authenticated in-memory Pi WAV ingestion endpoint
+- [x] require `Emi` wake address for microphone-triggered intents
 - [ ] capture short C3 microphone frames into RAM
 - [ ] stream audio C3 -> Pi
 - [ ] keep raw audio entirely out of disk storage
