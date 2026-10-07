@@ -6,6 +6,31 @@ Relationship rule: **the user can be EMI's best friend; EMI is not the user's be
 
 This is the canonical feature inventory for EMI. It should be updated as features are added, removed, redesigned, or explicitly rejected.
 
+
+## Implemented in the current prototype
+
+The following features are physically working now:
+
+- ESP32-C3 Super Mini as the active controller
+- SH1106 OLED face
+- TTP223 touch/petting input
+- verified I2S microphone hardware
+- curiosity/contentment-driven face behavior
+- recent-action anti-repetition
+- natural blink/gaze behavior
+- attention bids
+- petting reactions
+- deterministic `SHOW_TIME HH:MM`
+- eye-aligned clock UI where HH and MM occupy the normal eye regions
+- clean clock-to-eyes return animation
+- 2.4 GHz Wi-Fi on the C3 with the verified 8.5 dBm TX-power workaround
+- authenticated C3 polling of the Raspberry Pi hub
+- deterministic local time-intent parsing on the Pi
+- local `whisper.cpp` installation and benchmark on the Raspberry Pi
+- physical Raspberry Pi -> C3 -> OLED time command proven end-to-end
+
+The next active implementation target is the privacy-preserving microphone path: C3 RAM -> Wi-Fi -> Pi RAM -> local Whisper, with raw audio never written to disk.
+
 ## Personality and physical presence
 
 - expressive OLED eyes
@@ -60,7 +85,7 @@ First-class languages:
 
 Planned language features:
 
-- local speech-to-text
+- local speech-to-text (Pi backend proven; live C3 microphone streaming still in progress)
 - local text-to-speech
 - multilingual speech recognition
 - code-switching inside one sentence
@@ -93,9 +118,10 @@ Planned language features:
 ## Time and display UI
 
 - readable timer in the top-right corner
-- current time view
-- smooth eyes-to-clock transition with a large central clock
-- clock-to-eyes return animation
+- current time view **implemented**
+- smooth eyes-to-clock transition with a large central clock **implemented**
+- clock-to-eyes return animation **implemented**
+- HH/MM groups aligned to EMI's normal left/right eye positions **implemented**
 - small microphone/listening status icon
 - minimal overlays that do not turn EMI into a dashboard
 - face takes visual priority during direct interaction
