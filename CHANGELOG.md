@@ -1,3 +1,12 @@
+## 2026-10-07 - Add two-stage Wi-Fi connection test
+
+### Added
+
+- added a standalone C3 Wi-Fi connection diagnostic that first tries a normal WPA2 connection
+- if the normal attempt fails, it scans for the configured SSID and retries against the exact visible 2.4 GHz channel and BSSID
+- both attempts print the underlying ESP-IDF disconnect reason instead of only the coarse Arduino Wi-Fi status
+- the test uses the existing private `secrets.h` values and never hardcodes an SSID or password in the public repository
+
 ## 2026-10-07 - Pin Wi-Fi connection to the visible 2.4 GHz AP
 
 ### Changed
