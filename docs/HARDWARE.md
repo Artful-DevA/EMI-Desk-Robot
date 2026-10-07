@@ -2,7 +2,7 @@
 
 ## Current prototype
 
-- ESP32 DevKit V1
+- ESP32-C3 Super Mini
 - SH1106 128x64 4-pin I2C OLED
 - TTP223 / TTP223B capacitive touch sensor
 - I2S MEMS microphone with VCC, GND, SA/SD, L/R, WS, SCK
@@ -11,9 +11,9 @@
 
 ## Final controller
 
-The intended final controller is an **ESP32-C3 Mini / Super Mini style board**.
+The active controller is an **ESP32-C3 Super Mini**.
 
-The DevKit V1 pin assignments in this repository are prototype-only. The C3 has a different GPIO layout and may have boot/USB-sensitive pins, so the final mapping must be checked before permanent wiring.
+The current validated mapping keeps OLED SCL on GPIO 7 and leaves GPIO 9 free because GPIO 9 is the C3 BOOT strapping pin. The older DevKit V1 pin assignments remain prototype-only.
 
 ## Head movement
 
