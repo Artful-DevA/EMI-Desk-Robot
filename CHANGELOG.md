@@ -1,3 +1,12 @@
+## 2026-10-07 - Add ESP32-C3 Super Mini TX-power Wi-Fi test
+
+### Changed
+
+- updated the standalone Wi-Fi connection diagnostic to target the exact scanned 2.4 GHz AP and automatically test lower Wi-Fi transmit powers
+- tries 8.5 dBm first, then 11 dBm, 5 dBm, and 13 dBm
+- keeps reporting the underlying disconnect reason for every attempt
+- the test still reads SSID and password only from the private `secrets.h`
+
 ## 2026-10-07 - Add two-stage Wi-Fi connection test
 
 ### Added
