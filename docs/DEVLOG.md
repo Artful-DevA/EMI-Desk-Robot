@@ -23,8 +23,6 @@ Stats Are Currently Broken
 | **Next major milestone** | **Stream microphone audio to the Pi in RAM and feed local Whisper** |
 | **Last updated** | 2026-10-07 |
 
-> **Timing rule:** I publish durations, not private clock timestamps. The 1h30m break I reported is excluded completely from the exact development total. The older ~2-hour estimate stays separate and is never mixed into the exact tracked total.
-
 ## Exact session log
 
 | Session | Exact active duration | Notes |
