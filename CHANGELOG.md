@@ -8,7 +8,7 @@ This changelog starts from the point where the GitHub repository became writable
 
 - rewrote `docs/DEVLOG.md` in first person from the builder's point of view
 - corrected exact active development tracking to exclude the reported **1h30m break**
-- exact tracked active development is **03:21:58** at the latest documentation checkpoint; the older ~2-hour estimate remains separate
+- exact tracked active development is **03:26:31** at the latest documentation checkpoint; the older ~2-hour estimate remains separate
 - refreshed README, setup, roadmap, feature inventory, and connectivity docs to match the active ESP32-C3 prototype
 - documented the proven Raspberry Pi -> authenticated Wi-Fi -> physical C3 -> OLED time-command path
 - documented the GPIO 7 OLED SCL mapping and the required 8.5 dBm C3 Wi-Fi TX-power workaround
