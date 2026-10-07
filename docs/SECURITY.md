@@ -195,3 +195,22 @@ Note-taking is explicit and session-based.
 - note output may be saved directly as Markdown in a configured Obsidian vault
 - stopping note mode stops transcript retention immediately
 - sensitive information captured during a note session is the user's responsibility to manage, so note mode must always have a visible indicator
+
+## Live voice transport prototype
+
+The current Raspberry Pi voice backend accepts short authenticated WAV requests from the ESP32-C3 at `/device/audio`.
+
+Privacy/security rules for this path:
+
+- raw command audio is held in RAM only
+- EMI Hub does not create microphone WAV files on disk
+- whisper.cpp runs on localhost only
+- whisper.cpp `--convert` mode is intentionally disabled because conversion may require temporary files
+- microphone transcripts are not printed to normal logs
+- transcripts are discarded after wake-word/intent parsing
+- a microphone-triggered command must address `Emi` before the deterministic intent parser can execute an action
+- the device audio endpoint uses the same private shared-token authentication as the C3 command endpoint
+- ports 17840 and 17841 must not be exposed directly to the public internet
+
+This is still a trusted-LAN prototype. Stronger encrypted transport is required before privileged desktop actions are added.
+
