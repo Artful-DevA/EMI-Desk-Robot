@@ -88,9 +88,14 @@ const int VOICE_CALIBRATION_BLOCKS = 75;
 const int VOICE_START_BLOCKS = 3;
 const int VOICE_END_SILENT_BLOCKS = 44;
 
-const float VOICE_THRESHOLD_MULTIPLIER = 3.0f;
-const float VOICE_THRESHOLD_OFFSET = 80.0f;
-const float VOICE_MIN_THRESHOLD = 220.0f;
+// Real C3 mic measurements showed a room/noise floor around 4k-6k
+// while speech peaks were only around 7k+. The original 3x threshold
+// therefore made speech mathematically impossible to trigger.
+// Use an additive margin instead: learned floor + 900, with a sane
+// minimum threshold to avoid very quiet-room false starts.
+const float VOICE_THRESHOLD_MULTIPLIER = 1.0f;
+const float VOICE_THRESHOLD_OFFSET = 900.0f;
+const float VOICE_MIN_THRESHOLD = 4500.0f;
 const int VOICE_PCM_GAIN = 4;
 
 int32_t voiceI2SBlock[VOICE_I2S_BLOCK_SAMPLES];
