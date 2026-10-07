@@ -2,114 +2,184 @@
 
 `emi-hub` is the Raspberry Pi side of EMI.
 
-The current version is deliberately tiny. It does not handle live audio yet. It accepts already-recognized text, maps a small allow-listed set of phrases to the deterministic `TIME` intent, queues the resulting `SHOW_TIME HH:MM` command, and lets the ESP32-C3 retrieve that command over the LAN.
+The current hub handles two paths:
 
-## Current flow
+1. deterministic text intents such as `"Yo Emi time"`
+2. authenticated in-memory WAV uploads from the ESP32-C3 for local Whisper transcription
 
-```
-recognized text
-    |
-    v
-emi-hub /intent
-    |
-    v
-TIME
-    |
-    v
+Ordinary command audio and transcripts are ephemeral. Raw audio is not written to disk by EMI Hub.
+
+## Current voice architecture
+
+The planned live path is:
+
+```text
+ESP32-C3 I2S microphone
+        |
+        | 16 kHz mono WAV over trusted LAN
+        v
+POST /device/audio
+        |
+        | private shared token
+        v
+EMI Hub
+        |
+        | in-memory multipart request
+        v
+whisper-server on 127.0.0.1:17841
+        |
+        | transient transcript
+        v
+wake-word check: "Emi ..."
+        |
+        v
+deterministic intent parser
+        |
+        v
 SHOW_TIME HH:MM
+        |
+        v
+C3 /device/command polling
 ```
 
-Accepted examples:
+The ESP32 microphone uploader is the next firmware step.
 
-- `Emi, what time is it?`
-- `Emi, what's the time?`
-- `Emi, can you tell me the time?`
-- `Emi, tell me the time`
-- `Emi, time?`
-- `Yo Emi time`
-- `Yo Emi time is?`
-- `Hey Emi, could you tell me the time?`
+## Privacy behavior
 
-The service intentionally does not log the recognized sentence. Ordinary commands remain ephemeral.
+For ordinary voice commands:
 
-## Install on the Raspberry Pi
+- raw audio stays in RAM
+- EMI Hub does not create WAV files
+- EMI Hub does not log transcripts
+- recognized text is discarded after intent parsing
+- voice commands must address `Emi` before an intent is allowed to execute
+- the current device-audio endpoint is authenticated with the existing shared token
 
-Clone the repository to `~/EMI-Desk-Robot`, then run:
+The bundled whisper.cpp server is deliberately started **without** `--convert`. Current whisper.cpp can decode uploaded WAV bytes directly from memory; the conversion path may use temporary files.
 
-```bash
-cd ~/EMI-Desk-Robot
-bash hub/install-user-service.sh
-```
+## EMI Hub endpoints
 
-Check health:
+### `GET /health`
 
-```bash
-curl http://127.0.0.1:17840/health
-```
+Localhost only.
 
-Test the time intent:
+Returns hub status and the configured local Whisper endpoint.
+
+### `POST /intent`
+
+Localhost only.
+
+Accepts already-recognized text for deterministic testing.
+
+Example:
 
 ```bash
 curl -s \
   -H 'Content-Type: application/json' \
-  -d '{"text":"Emi, can you tell me the time?"}' \
+  -d '{"text":"Yo Emi time"}' \
   http://127.0.0.1:17840/intent
 ```
 
-Expected shape:
+### `GET /device/command`
 
-```json
-{"ok":true,"intent":"TIME","time":"14:37","command":"SHOW_TIME 14:37"}
-```
+LAN-accessible but requires:
 
-The exact time will come from the Raspberry Pi system clock.
+`X-EMI-Token`
 
-## Security state
+The ESP32-C3 polls this endpoint for pending allow-listed commands.
 
-Version 0.3 binds to the Pi's network interfaces so the C3 can reach it, but the speech/intent endpoint remains loopback-only. The C3 command endpoint requires a randomly generated shared token stored outside the repository. The token is never committed to GitHub.
+### `POST /device/audio`
 
-The current transport is suitable for the trusted home-LAN prototype and only carries allow-listed display commands. It is not intended to be exposed directly to the public internet.
+LAN-accessible but requires:
 
-## Audio privacy
+`X-EMI-Token`
 
-Live microphone audio is not implemented in this version.
+Expected content type:
 
-When audio streaming is added:
+`audio/wav`
 
-- raw audio must remain in RAM
-- raw audio must never be written to disk
-- ordinary command transcripts must not be retained
-- only explicit notes mode may retain text
+The request body is held in memory, forwarded to local Whisper in memory, transcribed, checked for an `Emi` wake phrase, parsed deterministically, and then discarded.
 
+Current maximum upload size is 384000 bytes.
 
-## ESP32-C3 connection
+## Local Whisper service
 
-Run the installer again after pulling v0.3:
+The project now includes:
+
+- `hub/emi-whisper.service`
+- `hub/install-whisper-service.sh`
+
+The service runs the already-built whisper.cpp server on:
+
+`127.0.0.1:17841`
+
+using:
+
+`~/whisper.cpp/models/ggml-tiny.en.bin`
+
+It is localhost-only; the ESP32 never talks directly to Whisper.
+
+## Install / update on the Raspberry Pi
+
+From the repository:
 
 ```bash
 cd ~/EMI-Desk-Robot
 git pull
-bash hub/install-user-service.sh
+chmod +x hub/install-whisper-service.sh
+./hub/install-whisper-service.sh
 ```
 
-The installer creates a private token in:
-
-```
-~/.config/emi-hub/emi-hub.env
-```
-
-Get the Pi LAN address:
+Then restart the normal EMI Hub so it loads v0.4:
 
 ```bash
-hostname -I | awk '{print $1}'
+systemctl --user restart emi-hub
 ```
 
-Get the private token for copying into the C3's local `secrets.h`:
+Check both services:
 
 ```bash
-grep '^EMI_SHARED_TOKEN=' ~/.config/emi-hub/emi-hub.env | cut -d= -f2-
+systemctl --user status emi-whisper --no-pager
+systemctl --user status emi-hub --no-pager
 ```
 
-Do not post the Wi-Fi password or token in chat, screenshots, or GitHub.
+Check the hub:
 
-Copy `firmware/emi_c3/secrets.example.h` to `secrets.h`, then fill in the Wi-Fi SSID/password, Pi LAN IP, and token. `secrets.h` is ignored by Git.
+```bash
+curl -s http://127.0.0.1:17840/health
+```
+
+The response should report version `0.4` and Whisper on `127.0.0.1:17841`.
+
+## Test Whisper without EMI
+
+The existing bundled JFK sample can verify the in-memory HTTP inference path:
+
+```bash
+curl -s http://127.0.0.1:17841/inference \
+  -F file=@$HOME/whisper.cpp/samples/jfk.wav \
+  -F response_format=json \
+  -F language=en
+```
+
+This test sends the WAV file from disk because it is an existing public test sample. For actual EMI microphone requests, the hub receives and forwards the WAV bytes entirely in memory.
+
+## Current deterministic time phrases
+
+Examples include:
+
+- `Emi, what time is it?`
+- `Emi, what's the time?`
+- `Emi, tell me the time`
+- `Yo Emi time`
+- `Hey Emi, could you tell me the time?`
+
+For the voice endpoint, the transcript must contain the wake address `Emi` after any simple greeting. Background speech such as `"what time is it?"` by itself does not trigger a command.
+
+## Security boundary
+
+The current device transport is a trusted-home-LAN prototype.
+
+Do not expose port 17840 or 17841 directly to the internet.
+
+Before EMI gains privileged desktop actions, the transport should move to a stronger encrypted/authenticated design.
