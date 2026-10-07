@@ -2,6 +2,24 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Add isolated end-to-end voice test firmware
+
+### Added
+
+- added `firmware/tests/c3_voice_e2e_test/c3_voice_e2e_test.ino` for the first reliable physical voice test
+- temporarily removes normal personality behavior and background command polling so microphone/VAD behavior can be measured without unrelated network activity
+- connects Wi-Fi first, then calibrates the microphone after the radio has settled
+- requires roughly 240 ms of sustained speech-like energy before recording, rather than reacting to short spikes
+- keeps a RAM-only pre-roll and short command recording
+- uploads directly to the authenticated `/device/audio` endpoint
+- classifies the hub result on Serial without printing the transcript
+- shows the returned time directly on the OLED when the TIME intent is matched
+
+### Why
+
+- the previous integrated VAD still produced false speech detections in silence
+- this diagnostic isolates microphone, VAD, upload, Whisper, wake-word parsing, and time intent before the tuned detector is merged back into normal EMI firmware
+
 ## 2026-10-07 - Replace false-triggering VAD with sustained speech detection
 
 ### Fixed
