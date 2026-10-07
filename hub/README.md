@@ -26,6 +26,9 @@ Accepted examples:
 - `Emi, can you tell me the time?`
 - `Emi, tell me the time`
 - `Emi, time?`
+- `Yo Emi time`
+- `Yo Emi time is?`
+- `Hey Emi, could you tell me the time?`
 
 The service intentionally does not log the recognized sentence. Ordinary commands remain ephemeral.
 
@@ -63,7 +66,7 @@ The exact time will come from the Raspberry Pi system clock.
 
 ## Security state
 
-Version 0.1 binds to `127.0.0.1` only. It is intentionally not exposed to the LAN yet.
+Version 0.2 binds to `127.0.0.1` only. It is intentionally not exposed to the LAN yet.
 
 The C3 transport will be added separately with authentication rather than opening an unauthenticated HTTP endpoint to the network.
 
