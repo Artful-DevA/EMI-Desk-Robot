@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **01:44:09 tracked so far** |
-| **Current exact session** | **ACTIVE - 01:44:09 at latest checkpoint** |
+| **Exact tracked development time** | **01:45:09 tracked so far** |
+| **Current exact session** | **ACTIVE - 01:45:09 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
 | **Completed exact sessions** | 0 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -28,7 +28,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Session | Exact duration | Notes |
 | --- | --- | --- |
-| 1 | ACTIVE - 01:44:09 at latest checkpoint | Exact tracking enabled; session is still running |
+| 1 | ACTIVE - 01:45:09 at latest checkpoint | Exact tracking enabled; session is still running |
 
 ## Backstory - before the tracked C3 migration session
 
@@ -312,6 +312,16 @@ The cause was our own retry loop: the C3 started a Wi-Fi connection, then called
 The network task now owns the full connection lifecycle. It waits up to 15 seconds for an attempt, cleanly resets a timed-out attempt, pauses briefly, and then starts a new one.
 
 **Result:** no more self-inflicted reconnect spam; the next test can distinguish a real SSID/password/network problem from a retry-loop bug.
+
+---
+
+## 2026-10-07 - Router says 2.4 GHz exists, so now we ask the C3 directly
+
+The Pi confirmed that the same SSID is being broadcast on both 2.4 GHz and 5 GHz, with the 2.4 GHz copy on 2412 MHz and a very strong signal.
+
+That means the router is not simply "5 GHz only". A dedicated C3 scan diagnostic was added so the next test can answer the only useful question left at this layer: **can the ESP32-C3 itself see that SSID?**
+
+If it can see the SSID, the problem moves to authentication/configuration. If it cannot, the problem is radio compatibility or router settings.
 
 ---
 
