@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **02:56:35 tracked so far** |
-| **Current exact session** | **ACTIVE - 01:05:47 at latest checkpoint** |
+| **Exact tracked development time** | **02:58:43 tracked so far** |
+| **Current exact session** | **ACTIVE - 01:07:55 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
 | **Completed exact sessions** | 1 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -29,7 +29,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 | Session | Exact duration | Notes |
 | --- | --- | --- |
 | 1 | 01:50:48 | First exact tracked block; ended before a user-reported 1h30m break |
-| 2 | ACTIVE - 01:05:47 at latest checkpoint | Tracking resumed after the 1h30m break |
+| 2 | ACTIVE - 01:07:55 at latest checkpoint | Tracking resumed after the 1h30m break |
 
 ## 2026-10-07 - GPIO 9 retired from OLED duty
 
