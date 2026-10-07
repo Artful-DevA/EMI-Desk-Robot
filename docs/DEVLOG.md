@@ -6,6 +6,7 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 ## Project stats
 
+Stats Are Currently Broken
 | Stat | Current value |
 | --- | --- |
 | **Exact tracked development time** | **08:19:24 tracked so far** |
