@@ -2,6 +2,15 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Soldered microphone validation test
+
+### Added
+
+- added a dedicated ESP32 DevKit I2S microphone validation sketch
+- current mic test wiring uses WS GPIO25, SCK GPIO26, and SD/SA GPIO32
+- serial output reports DC-corrected audio LEVEL and PEAK values
+- intended for confirming the freshly soldered microphone before moving on to ESP32-C3 testing
+
 ## 2026-10-07 - Planned night display dimming
 
 ### Documentation
