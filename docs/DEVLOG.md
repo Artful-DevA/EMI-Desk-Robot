@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **01:45:09 tracked so far** |
-| **Current exact session** | **ACTIVE - 01:45:09 at latest checkpoint** |
+| **Exact tracked development time** | **01:51:45 tracked so far** |
+| **Current exact session** | **ACTIVE - 01:51:45 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
 | **Completed exact sessions** | 0 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -28,7 +28,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Session | Exact duration | Notes |
 | --- | --- | --- |
-| 1 | ACTIVE - 01:45:09 at latest checkpoint | Exact tracking enabled; session is still running |
+| 1 | ACTIVE - 01:51:45 at latest checkpoint | Exact tracking enabled; session is still running |
 
 ## Backstory - before the tracked C3 migration session
 
@@ -322,6 +322,18 @@ The Pi confirmed that the same SSID is being broadcast on both 2.4 GHz and 5 GHz
 That means the router is not simply "5 GHz only". A dedicated C3 scan diagnostic was added so the next test can answer the only useful question left at this layer: **can the ESP32-C3 itself see that SSID?**
 
 If it can see the SSID, the problem moves to authentication/configuration. If it cannot, the problem is radio compatibility or router settings.
+
+---
+
+## 2026-10-07 - Native USB decided to stop cooperating
+
+While switching to the temporary Wi-Fi scan sketch, the ESP32-C3 suddenly stopped accepting uploads and `esptool` reported:
+
+> `Failed to connect to ESP32-C3: No serial data received.`
+
+This is an upload/bootloader problem, not a compile problem: the sketch compiled successfully, but the computer could not get the C3 into the serial bootloader handshake.
+
+The recovery path is the familiar C3 manual boot sequence: hold BOOT, tap RESET, release RESET, then release BOOT and upload again.
 
 ---
 
