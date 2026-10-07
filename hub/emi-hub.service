@@ -8,8 +8,7 @@ Type=simple
 WorkingDirectory=%h/EMI-Desk-Robot/hub
 ExecStart=/usr/bin/python3 %h/EMI-Desk-Robot/hub/emi_hub.py
 Environment=PYTHONUNBUFFERED=1
-Environment=EMI_HUB_HOST=127.0.0.1
-Environment=EMI_HUB_PORT=17840
+EnvironmentFile=%h/.config/emi-hub/emi-hub.env
 Restart=on-failure
 RestartSec=2
 NoNewPrivileges=true
