@@ -673,6 +673,18 @@ The command runs only when both gates pass their own confidence thresholds. That
 
 ---
 
+# 2026-10-08 - I parallelized the two voice gates
+
+The independent wake-word and time-intent gates fixed the phrase-order problem, but the response felt slower because I was running two complete Vosk recognizers one after another.
+
+Those recognizers do not depend on each other, so I changed the hub to run them concurrently with separate recognizer instances over the same in-memory audio.
+
+I kept the exact same wake and intent thresholds. This is a latency change, not another recognition retune.
+
+**Result:** I keep the v0.11 reliability improvement while removing most of the backend penalty from having two independent gates.
+
+---
+
 # Current state
 
 Right now I have a real networked EMI prototype with:

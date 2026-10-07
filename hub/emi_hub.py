@@ -2,6 +2,7 @@
 
 import hmac
 import http.client
+from concurrent.futures import ThreadPoolExecutor
 import io
 import json
 import os
@@ -241,17 +242,33 @@ def recognize_time_command(
         )
     )
 
-    wake_payload = run_vosk_grammar(
-        pcm_bytes,
-        sample_rate,
-        VOSK_WAKE_GRAMMAR,
-    )
+    # The wake and intent recognizers are independent. Running them
+    # concurrently cuts the extra latency introduced by the dual-gate
+    # design while preserving the same acceptance rules.
+    with ThreadPoolExecutor(
+        max_workers=2
+    ) as executor:
+        wake_future = executor.submit(
+            run_vosk_grammar,
+            pcm_bytes,
+            sample_rate,
+            VOSK_WAKE_GRAMMAR,
+        )
 
-    time_payload = run_vosk_grammar(
-        pcm_bytes,
-        sample_rate,
-        VOSK_TIME_GRAMMAR,
-    )
+        time_future = executor.submit(
+            run_vosk_grammar,
+            pcm_bytes,
+            sample_rate,
+            VOSK_TIME_GRAMMAR,
+        )
+
+        wake_payload = (
+            wake_future.result()
+        )
+
+        time_payload = (
+            time_future.result()
+        )
 
     wake_confidence = (
         max_word_confidence(
@@ -437,7 +454,7 @@ def transcribe_wav_in_memory(wav_bytes: bytes) -> str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "emi-hub/0.11"
+    server_version = "emi-hub/0.12"
 
     def _send_bytes(self, status: int, body: bytes, content_type: str):
         self.send_response(status)
@@ -509,7 +526,7 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "service": "emi-hub",
-                    "version": "0.11",
+                    "version": "0.12",
                     "whisper": (
                         f"{WHISPER_HOST}:"
                         f"{WHISPER_PORT}"
@@ -856,7 +873,7 @@ def main():
     )
 
     print(
-        f"emi-hub 0.11 listening on "
+        f"emi-hub 0.12 listening on "
         f"{HOST}:{PORT}",
         flush=True,
     )

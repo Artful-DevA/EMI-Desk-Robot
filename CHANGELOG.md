@@ -2,6 +2,20 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-08 - Reduce voice-command reaction latency
+
+### Changed
+
+- EMI Hub upgraded to v0.12
+- the independent Vosk wake-name gate and time-intent gate now run concurrently instead of sequentially
+- recognition rules and confidence thresholds are unchanged, so the v0.11 reliability behavior is preserved
+- this removes most of the extra backend delay introduced when the recognizer was split into two independent passes
+
+### Why
+
+- v0.11 fixed wake-word position reliability, but doing two full Vosk passes one after another made successful commands feel noticeably slower
+- the two passes are independent and can safely use separate recognizer instances against the same in-memory PCM clip
+
 ## 2026-10-08 - Make wake-word position independent
 
 ### Changed
