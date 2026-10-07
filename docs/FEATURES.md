@@ -317,3 +317,14 @@ EMI should not intentionally pretend to forget. Forgetting should be predictable
 - selected external APIs only when explicitly enabled
 - versioned firmware
 - documentation updated alongside firmware changes
+
+
+## Voice wake-word pipeline
+
+- [x] C3 captures short RAM-only acoustic candidates from the I2S microphone
+- [x] Raspberry Pi runs local Silero speech VAD before Whisper
+- [x] Raspberry Pi runs a dedicated sherpa-onnx open-vocabulary keyword spotter for the explicit EMI wake name
+- [x] wake name can appear before or after the command, e.g. `Emi time` or `Time Emi`
+- [x] Whisper handles command words only after the independent EMI wake gate passes
+- [x] raw audio is not written to disk by the EMI voice path
+- [x] C3 UI does not show a listening state for unconfirmed typing/tapping/noise candidates
