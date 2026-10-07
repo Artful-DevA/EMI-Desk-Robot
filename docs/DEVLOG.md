@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **02:58:43 tracked so far** |
-| **Current exact session** | **ACTIVE - 01:07:55 at latest checkpoint** |
+| **Exact tracked development time** | **03:09:34 tracked so far** |
+| **Current exact session** | **ACTIVE - 01:18:46 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
 | **Completed exact sessions** | 1 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -29,7 +29,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 | Session | Exact duration | Notes |
 | --- | --- | --- |
 | 1 | 01:50:48 | First exact tracked block; ended before a user-reported 1h30m break |
-| 2 | ACTIVE - 01:07:55 at latest checkpoint | Tracking resumed after the 1h30m break |
+| 2 | ACTIVE - 01:18:46 at latest checkpoint | Tracking resumed after the 1h30m break |
 
 ## 2026-10-07 - GPIO 9 retired from OLED duty
 
@@ -38,6 +38,19 @@ The OLED clock line was moved from **GPIO 9 to GPIO 7**. GPIO 9 is a BOOT strapp
 The normal EMI firmware now uses GPIO 7 for OLED SCL and keeps GPIO 9 free for BOOT/download mode.
 
 The user also clarified that there was a **1h30m break** during the exact tracking window. That break has been removed from the exact total rather than counted as development time.
+
+---
+
+## 2026-10-07 - Clock UI cleanup
+
+The first real Pi-to-EMI clock trigger worked on the physical OLED. Two visual issues showed up immediately:
+
+- the colon looked optically a little too far left
+- the face-return animation briefly produced an ugly flat line as the eyes came back
+
+The colon has been shifted 2 pixels to the right. The return transition no longer draws the temporary horizontal eye bars, and the eyes now reopen from a rounded partially-open state instead of a nearly flat 3-pixel shape.
+
+This is the first visual polish pass after the authenticated Pi -> C3 command path was proven end-to-end on hardware.
 
 ---
 
