@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **08:05:38 tracked so far** |
-| **Current exact session** | **ACTIVE - 06:14:50 at latest checkpoint** |
+| **Exact tracked development time** | **08:19:24 tracked so far** |
+| **Current exact session** | **ACTIVE - 06:28:36 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 06:14:50** | Work resumed after the break |
-| **Total active tracked work** | **08:05:38** | Break excluded |
+| 2 | **ACTIVE - 06:28:36** | Work resumed after the break |
+| **Total active tracked work** | **08:19:24** | Break excluded |
 
 ---
 
@@ -612,6 +612,24 @@ Second, I changed the C3 diagnostic UI. Its cheap energy detector is now correct
 I also increased pre-roll to about half a second, made candidate triggering faster, and removed the 4x PCM gain that could hard-clip loud samples.
 
 **Result:** the wake name is no longer hostage to tiny.en spelling, and random desk noise no longer looks like EMI is actively listening.
+
+---
+
+# 2026-10-08 - I stopped tuning the wrong wake-word tool
+
+The dedicated sherpa-onnx keyword spotter still would not reliably hear "EMI" even when I said it clearly. At that point continuing to move thresholds around was just going in circles.
+
+I checked the upstream KWS behavior and found the important limitation: very short English keywords can have poor recall even when boosting score and trigger threshold are tuned aggressively. EMI/Emmy is exactly that kind of short keyword.
+
+I removed that short-keyword detector from the active command path.
+
+For the current milestone I switched to a constrained offline Vosk recognizer on the Raspberry Pi. Instead of trying to detect the isolated name first, it recognizes the whole short command with context, such as "Emmy time" or "Time Emmy". The English acoustic spelling "Emmy" maps deterministically to the robot name EMI.
+
+The recognizer also requires both the wake token and the command token plus a minimum confidence. Random acoustic candidates still do nothing.
+
+Whisper stays available for later free-form reminder/timer text, but it no longer has to recognize the wake name for the basic time command.
+
+**Result:** I am narrowing the test on purpose: make "Emi time" and "Time Emi" reliable first, with no more C3 threshold changes, then expand from a known-good voice-command base.
 
 ---
 
