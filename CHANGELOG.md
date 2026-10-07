@@ -1,4 +1,21 @@
-# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Normal Emi moved to ESP32-C3
+# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - SHOW_TIME clock command on ESP32-C3
+
+### Added
+
+- normal ESP32-C3 firmware now accepts the deterministic serial command `SHOW_TIME HH:MM`
+- added strict 24-hour time validation before displaying the clock
+- added a custom eye-scale 7-segment clock rather than a font-based clock
+- added the full eyes -> thin bars -> clock -> thin bars -> eyes transition
+- clock colon blinks while the time is being held on screen
+- touching EMI while the clock is visible immediately returns to the face and begins normal petting interaction
+- added `FACE` as a simple manual command to dismiss the clock
+
+### Architecture
+
+- this command becomes the display-side endpoint for the upcoming local speech flow
+- the Raspberry Pi can later recognize phrases such as "what time is it?" and send the same `SHOW_TIME HH:MM` command without changing the animation code
+
+## 2026-10-07 - Normal Emi moved to ESP32-C3
 
 ### Added
 
