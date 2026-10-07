@@ -1,4 +1,12 @@
-# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - SHOW_TIME clock command on ESP32-C3
+# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Faster clock glance
+
+### Changed
+
+- reduced the SHOW_TIME hold from 4.5 seconds to 2.0 seconds
+- the full eyes-to-clock and clock-to-eyes morph remains unchanged
+- total interaction now feels more like a quick glance at the time instead of a modal screen
+
+## 2026-10-07 - SHOW_TIME clock command on ESP32-C3
 
 ### Added
 
