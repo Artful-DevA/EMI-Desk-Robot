@@ -2,11 +2,11 @@
 
 ## Current development board
 
-The breadboard prototype currently uses an **ESP32 DevKit V1** rather than the final ESP32-C3 Mini.
+The current breadboard prototype uses an **ESP32-C3 Super Mini**.
 
 Arduino IDE board selection:
 
-- **DOIT ESP32 DEVKIT V1**
+- **ESP32C3 Dev Module**
 
 On Windows, the current DevKit uses a Silicon Labs CP210x USB-to-UART bridge. If the serial port is missing, install the official Silicon Labs CP210x VCP driver.
 
@@ -77,3 +77,21 @@ If the touch sensor does nothing:
 ## Microphone status
 
 The microphone is currently experimental. Finish and inspect the header solder joints before treating microphone measurements as meaningful.
+
+
+## Private C3 network configuration
+
+The normal C3 firmware now expects a local `secrets.h` beside `emi_c3.ino`.
+
+Start from:
+
+`firmware/emi_c3/secrets.example.h`
+
+Copy it to `secrets.h` and fill in:
+
+- home Wi-Fi SSID
+- home Wi-Fi password
+- Raspberry Pi LAN IP
+- EMI Hub shared token
+
+Never commit `secrets.h`. The repository `.gitignore` excludes it.
