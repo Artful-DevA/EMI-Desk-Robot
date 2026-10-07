@@ -6,7 +6,24 @@ EMI is intended to be useful without becoming an unrestricted computer-control, 
 
 EMI should collect the **minimum data needed for a feature**.
 
-A feature being technically possible is not enough reason to store the data behind it.
+A useful shorthand is:
+
+**functional memory, not intimate memory**
+
+EMI should remember enough to make timers, classes, language practice, device preferences, selected project knowledge, and chosen conveniences work well. EMI should not try to reconstruct the user's private life.
+
+## Hard boundaries
+
+EMI should not:
+
+- search the web for information about the user
+- enrich stored data with public profiles, social accounts, people-search results, or other external sources
+- infer sensitive traits from music, browsing, speech, contacts, or projects
+- act as a therapist, confidant, or substitute human relationship
+- encourage disclosure of highly private information
+- keep ordinary conversations as permanent memory by default
+
+If a conversation starts becoming too personal, EMI should be able to say that it is better not to store or discuss that kind of information with him.
 
 ## Microphone
 
@@ -20,7 +37,35 @@ Design goals:
 - raw audio discarded by default after transcription
 - physical microphone disable control is a possible later addition
 
-Always-listen is compatible with a privacy-first design only if audio stays under the user's control and the listening state is obvious.
+## Project awareness
+
+GitHub/project awareness is allowed only as a selected work feature.
+
+Recommended rules:
+
+- repositories are explicitly selected by the user
+- read-only access by default
+- repository source/index data is stored separately from personal memory
+- no crawling the user's GitHub profile
+- no inferring habits from commit times
+- no storing contributor emails or unrelated collaborator information
+- no following links from repositories to build a personal profile
+- the project index should be disposable and rebuildable
+
+## Names and people
+
+EMI does not need the user's legal name.
+
+A nickname or first name can be stored only if the user wants it.
+
+"Meet Bob" should default to temporary session context unless the user explicitly asks EMI to remember Bob.
+
+If remembered, store only what is necessary, such as:
+
+- a chosen name/nickname
+- a simple relationship label if explicitly provided
+
+Do not automatically collect surnames, profiles, contact data, addresses, faces, or other personal details.
 
 ## Speech recognition
 
@@ -28,13 +73,63 @@ Speech-to-text should run locally on hardware controlled by the user.
 
 Whisper/whisper.cpp can run fully locally after the model is installed, but Whisper is still a machine-learning speech-recognition model. Vosk is also machine-learning based.
 
-If the requirement is **no cloud**, local Whisper/Vosk are compatible with that goal.
+If the requirement is **no cloud**, local Whisper/Vosk fit that goal.
 
-If the requirement is literally **no machine learning at all**, modern multilingual free-form speech recognition and code-switching become much less practical; a restricted grammar recognizer would be needed instead.
+If the requirement is literally **no machine learning at all**, modern multilingual free-form speech recognition and code-switching become much less practical.
+
+## Music learning
+
+Music personalization should be optional.
+
+A privacy-light approach is preferred:
+
+- allow named playlist aliases, e.g. "favorite playlist" -> a playlist URI
+- current song may be read transiently
+- no permanent exact play counts required
+- no timestamped listening history
+- no personality inference from music
+- any learned preference can be deleted completely from EMI's active database
+
+## Memory and forgetting
+
+Not every observation should become memory.
+
+Recommended tiers:
+
+1. **ephemeral context** - session-only
+2. **observation** - low-confidence and short-lived
+3. **derived preference** - repeated pattern, may decay
+4. **explicit fact** - durable only when supplied or confirmed
+
+Forgetting should mean deletion from active memory, not pretending to forget.
+
+When the user asks EMI to forget something:
+
+- remove the record from the active database
+- remove derived indexes/caches referencing it
+- remove search-index entries
+- do not keep a hidden "deleted memories" table
+
+On flash/SD media, perfect forensic erasure of an individual old record cannot always be guaranteed because of wear leveling. For stronger protection, EMI should use encrypted storage and avoid unnecessary backups.
+
+## Database size
+
+Personal memory should stay deliberately small.
+
+Suggested design:
+
+- personal memory database: small capped quota
+- tasks/calendar cache: small and prunable
+- transcripts: separate storage with explicit retention rules
+- project/repository indexes: separate disposable cache
+- raw audio: not retained by default
+- no embedding/vector database unless a later feature truly needs it
+
+SQLite text records are tiny; audio and duplicated repository data are what would grow storage quickly.
 
 ## Personal data boundary
 
-EMI should not store the following by default:
+EMI should not store by default:
 
 - passwords, API tokens, recovery codes
 - banking/payment information
@@ -42,50 +137,10 @@ EMI should not store the following by default:
 - exact location history
 - full browsing history
 - raw microphone recordings
-- permanent detailed music-listening history
+- detailed music-listening history
 - medical/health records
 - highly sensitive identity/belief data
-- birth year or age when only a birthday greeting is required
-
-For birthday greetings, month/day is sufficient.
-
-## Memory tiers and forgetting
-
-Not every observation should become memory.
-
-Recommended tiers:
-
-1. **ephemeral context** - session-only
-2. **observation** - low-confidence, short retention
-3. **derived preference** - repeated pattern, confidence decays
-4. **explicit fact** - durable only when supplied/confirmed
-
-Derived memories should decay unless reinforced.
-
-This gives EMI a limited, understandable form of forgetting without randomly deleting important explicit facts.
-
-The user should be able to:
-
-- inspect stored memory
-- see why a derived preference exists
-- delete individual memories
-- delete whole categories
-- export the database
-- reset EMI's personal database
-
-## Music learning
-
-For Spotify on Ubuntu, prefer local playback metadata from the desktop media interface.
-
-Store aggregates such as:
-
-- artist play count
-- track play count
-- recency-weighted preference score
-
-Avoid storing a permanent timestamped history of every song.
-
-Do not infer sensitive personal traits from music choices.
+- birth year or exact age when only a birthday greeting is needed
 
 ## Calendar
 
@@ -96,68 +151,13 @@ Possible strategy:
 - read upcoming events
 - derive free/busy windows
 - keep only reminder-relevant class information
-- avoid copying the user's complete long-term calendar into EMI's database unless explicitly requested
-
-Calendar context may suppress:
-
-- attention bids
-- movement reminders
-- casual interruptions
-
-## Class reminders and phone notifications
-
-Class reminders should be scheduled from explicit calendar events.
-
-If the user is away from the desk, the phone app can display a local notification.
-
-The design should not require storing continuous location history to decide whether the user is "away."
+- avoid copying the full long-term calendar into personal memory
 
 ## Desktop integration
 
 The robot should never send arbitrary shell commands for execution.
 
-Preferred architecture:
-
-1. EMI sends a structured action request.
-2. A local desktop service authenticates the request.
-3. The service checks the action against an explicit allow-list.
-4. Only the predefined implementation for that action runs.
-
-Example allowed actions may eventually include:
-
-- media play/pause
-- volume up/down
-- read CPU temperature
-- open CamTune
-- create a timer
-- lock the computer
-- report the current song
-
-## Privileged actions
-
-Anything that needs root privileges should use a narrow, root-owned helper script with an exact sudoers rule.
-
-Do not allow:
-
-- arbitrary `sudo`
-- arbitrary shell text supplied over the network
-- command concatenation
-- unrestricted file deletion
-
-High-impact actions such as shutdown, reboot, software installation, or deletion should require explicit confirmation, ideally with a physical confirmation step.
-
-## Network
-
-Later stages should include:
-
-- authentication between EMI, Raspberry Pi, phone, and computers
-- firewall rules restricting which local hosts can reach each service
-- minimal listening ports
-- logging of important desktop actions
-- no unnecessary internet exposure
-- encrypted travel tunnel
-
-If a third-party coordination service for a VPN is undesirable, direct WireGuard or a self-hosted coordination option can be considered later.
+Use authenticated, allow-listed structured actions only.
 
 ## Database protection
 
@@ -166,6 +166,6 @@ Planned protections:
 - database stored only on trusted local hardware
 - restrictive filesystem permissions
 - encrypted storage where practical
-- no secrets stored in the same general-purpose memory tables
-- backups opt-in rather than automatic cloud backup
+- backups opt-in
 - clear retention policies
+- easy inspect/export/delete controls
