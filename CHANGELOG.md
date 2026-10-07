@@ -1,3 +1,20 @@
+# Changelog
+
+This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
+
+## 2026-10-07 - Synchronize project documentation with the working prototype
+
+### Documentation
+
+- rewrote `docs/DEVLOG.md` in first person from the builder's point of view
+- corrected exact active development tracking to exclude the reported **1h30m break**
+- exact tracked active development is **03:21:58** at the latest documentation checkpoint; the older ~2-hour estimate remains separate
+- refreshed README, setup, roadmap, feature inventory, and connectivity docs to match the active ESP32-C3 prototype
+- documented the proven Raspberry Pi -> authenticated Wi-Fi -> physical C3 -> OLED time-command path
+- documented the GPIO 7 OLED SCL mapping and the required 8.5 dBm C3 Wi-Fi TX-power workaround
+- updated the next milestone to in-memory C3 microphone streaming into local Raspberry Pi Whisper
+- cleaned duplicate/malformed changelog headers left by earlier documentation updates
+
 ## 2026-10-07 - Align clock with EMI's eyes
 
 ### Changed
@@ -63,7 +80,7 @@
 - connection timeout output now includes the last disconnect reason
 - disabled Wi-Fi modem sleep while the hub connection is active to simplify connectivity debugging
 
-# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Make Wi-Fi scan output impossible to miss
+## 2026-10-07 - Make Wi-Fi scan output impossible to miss
 
 ### Changed
 
@@ -124,16 +141,6 @@
 - accepts short requests such as `Yo Emi time` and `Yo Emi time is?`
 - keeps the command parser deterministic instead of using fuzzy intent matching for execution
 
-## 2026-10-07 - More natural time phrasing in EMI Hub
-
-### Changed
-
-- upgraded EMI Hub to v0.2
-- replaced exact full-sentence regex matching with a deterministic phrase-normalization step
-- accepts casual greetings before EMI such as `yo`, `hey`, `hi`, `hello`, `ok`, and `okay`
-- accepts short time requests such as `Yo Emi time` and `Yo Emi time is?`
-- keeps the intent allow-listed and deterministic rather than using fuzzy ML for command execution
-
 ## 2026-10-07 - Faster clock glance
 
 ### Changed
@@ -174,10 +181,6 @@
 - promoted the ESP32-C3 OLED/touch/microphone pin map from conceptual to physically verified
 - retained the previous ESP32 DevKit V1 map only as prototype reference
 - marked the ESP32-C3 Super Mini as the current prototype controller
-
-# Changelog
-
-This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
 ## 2026-10-07 - ESP32-C3 OLED, touch, and microphone integration test
 
