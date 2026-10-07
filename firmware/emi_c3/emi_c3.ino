@@ -1138,6 +1138,36 @@ void drawClockTransition() {
 }
 
 
+void drawVoiceStatus() {
+
+  if (!voiceMonitorReady) {
+    return;
+  }
+
+
+  if (
+    voiceCapturing ||
+    voiceProcessing
+  ) {
+
+    display.drawDisc(
+      123,
+      4,
+      2
+    );
+  }
+
+  else {
+
+    display.drawCircle(
+      123,
+      4,
+      2
+    );
+  }
+}
+
+
 void drawEmi() {
 
   display.clearBuffer();
@@ -1157,6 +1187,9 @@ void drawEmi() {
       0.0f
     );
   }
+
+
+  drawVoiceStatus();
 
 
   display.sendBuffer();
@@ -3056,6 +3089,905 @@ void updatePettingBehaviour() {
 
 
 // ------------------------------------------------------------
+// LIVE VOICE CAPTURE
+// ------------------------------------------------------------
+
+bool setupVoiceMicrophone() {
+
+  i2s_config_t config = {};
+
+  config.mode =
+    (i2s_mode_t)(
+      I2S_MODE_MASTER |
+      I2S_MODE_RX
+    );
+
+  config.sample_rate =
+    VOICE_SAMPLE_RATE;
+
+  config.bits_per_sample =
+    I2S_BITS_PER_SAMPLE_32BIT;
+
+  config.channel_format =
+    I2S_CHANNEL_FMT_ONLY_LEFT;
+
+  config.communication_format =
+    I2S_COMM_FORMAT_STAND_I2S;
+
+  config.intr_alloc_flags =
+    ESP_INTR_FLAG_LEVEL1;
+
+  config.dma_buf_count =
+    8;
+
+  config.dma_buf_len =
+    128;
+
+  config.use_apll =
+    false;
+
+  config.tx_desc_auto_clear =
+    false;
+
+  config.fixed_mclk =
+    0;
+
+
+  i2s_pin_config_t pins = {};
+
+  pins.bck_io_num =
+    MIC_SCK;
+
+  pins.ws_io_num =
+    MIC_WS;
+
+  pins.data_out_num =
+    I2S_PIN_NO_CHANGE;
+
+  pins.data_in_num =
+    MIC_SD;
+
+
+  esp_err_t result =
+    i2s_driver_install(
+      I2S_PORT,
+      &config,
+      0,
+      nullptr
+    );
+
+
+  if (
+    result !=
+    ESP_OK
+  ) {
+
+    Serial.print(
+      "Voice I2S install failed: "
+    );
+
+    Serial.println(
+      (int)result
+    );
+
+    return false;
+  }
+
+
+  result =
+    i2s_set_pin(
+      I2S_PORT,
+      &pins
+    );
+
+
+  if (
+    result !=
+    ESP_OK
+  ) {
+
+    Serial.print(
+      "Voice I2S pin setup failed: "
+    );
+
+    Serial.println(
+      (int)result
+    );
+
+    i2s_driver_uninstall(
+      I2S_PORT
+    );
+
+    return false;
+  }
+
+
+  i2s_zero_dma_buffer(
+    I2S_PORT
+  );
+
+
+  return true;
+}
+
+
+void writeWavHeader(
+  uint8_t *buffer,
+  uint32_t pcmBytes
+) {
+
+  uint32_t riffSize =
+    36 +
+    pcmBytes;
+
+  uint32_t byteRate =
+    VOICE_SAMPLE_RATE *
+    2;
+
+
+  memcpy(
+    buffer + 0,
+    "RIFF",
+    4
+  );
+
+  buffer[4] =
+    (uint8_t)(
+      riffSize
+    );
+
+  buffer[5] =
+    (uint8_t)(
+      riffSize >>
+      8
+    );
+
+  buffer[6] =
+    (uint8_t)(
+      riffSize >>
+      16
+    );
+
+  buffer[7] =
+    (uint8_t)(
+      riffSize >>
+      24
+    );
+
+
+  memcpy(
+    buffer + 8,
+    "WAVEfmt ",
+    8
+  );
+
+
+  buffer[16] = 16;
+  buffer[17] = 0;
+  buffer[18] = 0;
+  buffer[19] = 0;
+
+  buffer[20] = 1;
+  buffer[21] = 0;
+
+  buffer[22] = 1;
+  buffer[23] = 0;
+
+
+  buffer[24] =
+    (uint8_t)(
+      VOICE_SAMPLE_RATE
+    );
+
+  buffer[25] =
+    (uint8_t)(
+      VOICE_SAMPLE_RATE >>
+      8
+    );
+
+  buffer[26] =
+    (uint8_t)(
+      VOICE_SAMPLE_RATE >>
+      16
+    );
+
+  buffer[27] =
+    (uint8_t)(
+      VOICE_SAMPLE_RATE >>
+      24
+    );
+
+
+  buffer[28] =
+    (uint8_t)(
+      byteRate
+    );
+
+  buffer[29] =
+    (uint8_t)(
+      byteRate >>
+      8
+    );
+
+  buffer[30] =
+    (uint8_t)(
+      byteRate >>
+      16
+    );
+
+  buffer[31] =
+    (uint8_t)(
+      byteRate >>
+      24
+    );
+
+
+  buffer[32] = 2;
+  buffer[33] = 0;
+
+  buffer[34] = 16;
+  buffer[35] = 0;
+
+
+  memcpy(
+    buffer + 36,
+    "data",
+    4
+  );
+
+
+  buffer[40] =
+    (uint8_t)(
+      pcmBytes
+    );
+
+  buffer[41] =
+    (uint8_t)(
+      pcmBytes >>
+      8
+    );
+
+  buffer[42] =
+    (uint8_t)(
+      pcmBytes >>
+      16
+    );
+
+  buffer[43] =
+    (uint8_t)(
+      pcmBytes >>
+      24
+    );
+}
+
+
+int16_t voiceSampleToPcm(
+  int32_t centeredSample
+) {
+
+  int64_t amplified =
+    (int64_t)
+      centeredSample *
+    VOICE_PCM_GAIN;
+
+
+  if (
+    amplified >
+    32767
+  ) {
+
+    amplified =
+      32767;
+  }
+
+
+  if (
+    amplified <
+    -32768
+  ) {
+
+    amplified =
+      -32768;
+  }
+
+
+  return
+    (int16_t)
+      amplified;
+}
+
+
+bool uploadVoiceWav(
+  int sampleCount
+) {
+
+  if (
+    sampleCount <
+    VOICE_MIN_SAMPLES
+  ) {
+
+    return false;
+  }
+
+
+  if (
+    WiFi.status() !=
+    WL_CONNECTED
+  ) {
+
+    Serial.println(
+      "Voice discarded: Wi-Fi not connected."
+    );
+
+    return false;
+  }
+
+
+  uint32_t pcmBytes =
+    (uint32_t)
+      sampleCount *
+    sizeof(int16_t);
+
+
+  writeWavHeader(
+    voiceWavBuffer,
+    pcmBytes
+  );
+
+
+  if (
+    httpMutex !=
+      nullptr
+  ) {
+
+    if (
+      xSemaphoreTake(
+        httpMutex,
+        pdMS_TO_TICKS(
+          1500
+        )
+      )
+      !=
+      pdTRUE
+    ) {
+
+      Serial.println(
+        "Voice upload skipped: HTTP busy."
+      );
+
+      return false;
+    }
+  }
+
+
+  voiceProcessing =
+    true;
+
+
+  WiFiClient client;
+  HTTPClient http;
+
+
+  String url =
+    "http://" +
+    String(EMI_HUB_HOST) +
+    ":" +
+    String(EMI_HUB_PORT) +
+    "/device/audio";
+
+
+  http.setConnectTimeout(
+    1000
+  );
+
+  http.setTimeout(
+    30000
+  );
+
+
+  if (
+    !http.begin(
+      client,
+      url
+    )
+  ) {
+
+    voiceProcessing =
+      false;
+
+
+    if (
+      httpMutex !=
+        nullptr
+    ) {
+
+      xSemaphoreGive(
+        httpMutex
+      );
+    }
+
+
+    Serial.println(
+      "Voice upload failed: HTTP begin."
+    );
+
+    return false;
+  }
+
+
+  http.addHeader(
+    "X-EMI-Token",
+    EMI_SHARED_TOKEN
+  );
+
+  http.addHeader(
+    "Content-Type",
+    "audio/wav"
+  );
+
+
+  int status =
+    http.POST(
+      voiceWavBuffer,
+      44 +
+      pcmBytes
+    );
+
+
+  Serial.print(
+    "Voice upload HTTP status: "
+  );
+
+  Serial.println(
+    status
+  );
+
+
+  http.end();
+
+
+  voiceProcessing =
+    false;
+
+
+  if (
+    httpMutex !=
+      nullptr
+  ) {
+
+    xSemaphoreGive(
+      httpMutex
+    );
+  }
+
+
+  return
+    status ==
+    200;
+}
+
+
+void voiceTask(
+  void *parameter
+) {
+
+  int preRollWrite =
+    0;
+
+  int preRollCount =
+    0;
+
+  int calibrationBlocks =
+    0;
+
+  int loudBlocks =
+    0;
+
+  int silentBlocks =
+    0;
+
+  int recordedSamples =
+    0;
+
+  float noiseFloor =
+    0.0f;
+
+
+  int16_t *recordedPcm =
+    reinterpret_cast<int16_t *>(
+      voiceWavBuffer +
+      44
+    );
+
+
+  voiceMonitorReady =
+    true;
+
+
+  Serial.println(
+    "Voice monitor: calibrating room noise..."
+  );
+
+
+  for (;;) {
+
+    size_t bytesRead =
+      0;
+
+
+    esp_err_t result =
+      i2s_read(
+        I2S_PORT,
+        voiceI2SBlock,
+        sizeof(
+          voiceI2SBlock
+        ),
+        &bytesRead,
+        portMAX_DELAY
+      );
+
+
+    if (
+      result !=
+        ESP_OK ||
+      bytesRead ==
+        0
+    ) {
+
+      vTaskDelay(
+        pdMS_TO_TICKS(
+          10
+        )
+      );
+
+      continue;
+    }
+
+
+    int count =
+      bytesRead /
+      sizeof(int32_t);
+
+
+    int64_t sum =
+      0;
+
+
+    for (
+      int i = 0;
+      i < count;
+      i++
+    ) {
+
+      sum +=
+        voiceI2SBlock[i] >>
+        8;
+    }
+
+
+    int32_t mean =
+      (int32_t)(
+        sum /
+        count
+      );
+
+
+    uint64_t magnitudeSum =
+      0;
+
+
+    int16_t converted[
+      VOICE_I2S_BLOCK_SAMPLES
+    ];
+
+
+    for (
+      int i = 0;
+      i < count;
+      i++
+    ) {
+
+      int32_t centered =
+        (
+          voiceI2SBlock[i] >>
+          8
+        )
+        -
+        mean;
+
+
+      int32_t magnitude =
+        centered >=
+          0
+        ? centered
+        : -centered;
+
+
+      magnitudeSum +=
+        (uint32_t)
+          magnitude;
+
+
+      converted[i] =
+        voiceSampleToPcm(
+          centered
+        );
+    }
+
+
+    float level =
+      (float)(
+        magnitudeSum /
+        count
+      );
+
+
+    for (
+      int i = 0;
+      i < count;
+      i++
+    ) {
+
+      voicePreRoll[
+        preRollWrite
+      ] =
+        converted[i];
+
+
+      preRollWrite =
+        (
+          preRollWrite +
+          1
+        )
+        %
+        VOICE_PRE_ROLL_SAMPLES;
+
+
+      if (
+        preRollCount <
+        VOICE_PRE_ROLL_SAMPLES
+      ) {
+
+        preRollCount++;
+      }
+    }
+
+
+    if (
+      calibrationBlocks <
+      VOICE_CALIBRATION_BLOCKS
+    ) {
+
+      if (
+        calibrationBlocks ==
+        0
+      ) {
+
+        noiseFloor =
+          level;
+      }
+
+      else {
+
+        noiseFloor =
+          noiseFloor *
+          0.90f +
+          level *
+          0.10f;
+      }
+
+
+      calibrationBlocks++;
+
+
+      if (
+        calibrationBlocks ==
+        VOICE_CALIBRATION_BLOCKS
+      ) {
+
+        Serial.print(
+          "Voice monitor ready. Noise floor: "
+        );
+
+        Serial.println(
+          noiseFloor
+        );
+      }
+
+
+      continue;
+    }
+
+
+    float threshold =
+      max(
+        VOICE_MIN_THRESHOLD,
+        noiseFloor *
+          VOICE_THRESHOLD_MULTIPLIER +
+          VOICE_THRESHOLD_OFFSET
+      );
+
+
+    bool loud =
+      level >
+      threshold;
+
+
+    if (!voiceCapturing) {
+
+      if (!loud) {
+
+        noiseFloor =
+          noiseFloor *
+          0.995f +
+          level *
+          0.005f;
+
+        loudBlocks =
+          0;
+      }
+
+      else {
+
+        loudBlocks++;
+      }
+
+
+      if (
+        loudBlocks >=
+        VOICE_START_BLOCKS
+      ) {
+
+        voiceCapturing =
+          true;
+
+        silentBlocks =
+          0;
+
+        loudBlocks =
+          0;
+
+        recordedSamples =
+          0;
+
+
+        int start =
+          (
+            preRollWrite -
+            preRollCount +
+            VOICE_PRE_ROLL_SAMPLES
+          )
+          %
+          VOICE_PRE_ROLL_SAMPLES;
+
+
+        for (
+          int i = 0;
+          i <
+            preRollCount &&
+          recordedSamples <
+            VOICE_MAX_SAMPLES;
+          i++
+        ) {
+
+          int index =
+            (
+              start +
+              i
+            )
+            %
+            VOICE_PRE_ROLL_SAMPLES;
+
+
+          recordedPcm[
+            recordedSamples++
+          ] =
+            voicePreRoll[
+              index
+            ];
+        }
+
+
+        Serial.println(
+          "Voice: speech detected."
+        );
+      }
+
+
+      continue;
+    }
+
+
+    for (
+      int i = 0;
+      i < count &&
+      recordedSamples <
+        VOICE_MAX_SAMPLES;
+      i++
+    ) {
+
+      recordedPcm[
+        recordedSamples++
+      ] =
+        converted[i];
+    }
+
+
+    if (loud) {
+
+      silentBlocks =
+        0;
+    }
+
+    else {
+
+      silentBlocks++;
+    }
+
+
+    bool reachedSilence =
+      silentBlocks >=
+      VOICE_END_SILENT_BLOCKS;
+
+
+    bool reachedMaximum =
+      recordedSamples >=
+      VOICE_MAX_SAMPLES;
+
+
+    if (
+      reachedSilence ||
+      reachedMaximum
+    ) {
+
+      voiceCapturing =
+        false;
+
+
+      Serial.print(
+        "Voice: captured "
+      );
+
+      Serial.print(
+        recordedSamples
+      );
+
+      Serial.println(
+        " samples; sending to Pi."
+      );
+
+
+      uploadVoiceWav(
+        recordedSamples
+      );
+
+
+      recordedSamples =
+        0;
+
+      silentBlocks =
+        0;
+
+      loudBlocks =
+        0;
+
+
+      i2s_zero_dma_buffer(
+        I2S_PORT
+      );
+
+
+      vTaskDelay(
+        pdMS_TO_TICKS(
+          400
+        )
+      );
+    }
+  }
+}
+
+
+// ------------------------------------------------------------
 // WIFI / HUB COMMAND TRANSPORT
 // ------------------------------------------------------------
 
@@ -3358,6 +4290,27 @@ void pollHubOnce() {
   }
 
 
+  if (
+    httpMutex !=
+      nullptr
+  ) {
+
+    if (
+      xSemaphoreTake(
+        httpMutex,
+        pdMS_TO_TICKS(
+          500
+        )
+      )
+      !=
+      pdTRUE
+    ) {
+
+      return;
+    }
+  }
+
+
   WiFiClient client;
   HTTPClient http;
 
@@ -3386,6 +4339,16 @@ void pollHubOnce() {
       url
     )
   ) {
+
+    if (
+      httpMutex !=
+        nullptr
+    ) {
+
+      xSemaphoreGive(
+        httpMutex
+      );
+    }
 
     return;
   }
@@ -3426,6 +4389,17 @@ void pollHubOnce() {
 
 
   http.end();
+
+
+  if (
+    httpMutex !=
+      nullptr
+  ) {
+
+    xSemaphoreGive(
+      httpMutex
+    );
+  }
 }
 
 
