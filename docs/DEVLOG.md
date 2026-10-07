@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **05:53:33 tracked so far** |
-| **Current exact session** | **ACTIVE - 04:02:45 at latest checkpoint** |
+| **Exact tracked development time** | **07:56:48 tracked so far** |
+| **Current exact session** | **ACTIVE - 06:06:00 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 04:02:45** | Work resumed after the break |
-| **Total active tracked work** | **05:53:33** | Break excluded |
+| 2 | **ACTIVE - 06:06:00** | Work resumed after the break |
+| **Total active tracked work** | **07:56:48** | Break excluded |
 
 ---
 
@@ -578,6 +578,22 @@ I also changed the deterministic wake parser so the explicit wake name may appea
 I kept fuzzy wake matching disabled.
 
 **Result:** non-speech noise no longer gets a built-in hint that can manufacture an EMI time command, and wake-word placement is more natural.
+
+---
+
+# 2026-10-08 - I moved real speech detection onto the Pi
+
+The C3 energy detector proved useful for finding acoustic activity, but it also proved its limitation: typing, tapping, sniffing, and other desk noises can all be loud enough to look like "speech" if I only compare signal energy.
+
+I stopped treating that energy detector as the authority.
+
+I enabled whisper.cpp's built-in Silero VAD on the Raspberry Pi. The C3 can still cheaply notice that something happened and send a short RAM-only clip, but the Pi now has a speech-specific model that decides whether the clip actually contains human speech before Whisper transcription is used.
+
+The service uses Silero v6.2.0 with a slightly conservative threshold, short minimum speech/silence windows, and speech padding so a short phrase such as "Emi time" is not trimmed too aggressively.
+
+The installer now downloads the official VAD model through whisper.cpp's own downloader if it is missing.
+
+**Result:** keyboard clicks and other non-speech sounds no longer have to be solved with increasingly fragile ESP32 loudness thresholds. The Pi now has a real speech/non-speech gate before command transcription.
 
 ---
 
