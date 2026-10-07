@@ -11,7 +11,9 @@ The ESP32-C3 Super Mini pin map below has now been **physically validated** with
 | VCC | 3V3 |
 | GND | GND |
 | SDA | GPIO 8 |
-| SCL | GPIO 9 |
+| SCL | GPIO 7 |
+
+GPIO 9 is intentionally left unused by the OLED because it is the ESP32-C3 BOOT strapping pin. Keeping the OLED clock off GPIO 9 makes manual flashing/recovery much more reliable.
 
 ### TTP223 capacitive touch sensor
 
