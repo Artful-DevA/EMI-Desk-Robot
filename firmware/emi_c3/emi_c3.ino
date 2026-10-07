@@ -3592,6 +3592,9 @@ void voiceTask(
   float noiseFloor =
     0.0f;
 
+  unsigned long lastVoiceDebug =
+    0;
+
 
   int16_t *recordedPcm =
     reinterpret_cast<int16_t *>(
@@ -3811,6 +3814,42 @@ void voiceTask(
     bool loud =
       level >
       threshold;
+
+
+    if (
+      !voiceCapturing &&
+      millis() -
+        lastVoiceDebug >=
+        1000
+    ) {
+
+      lastVoiceDebug =
+        millis();
+
+      Serial.print(
+        "Voice level="
+      );
+
+      Serial.print(
+        level
+      );
+
+      Serial.print(
+        " noise="
+      );
+
+      Serial.print(
+        noiseFloor
+      );
+
+      Serial.print(
+        " threshold="
+      );
+
+      Serial.println(
+        threshold
+      );
+    }
 
 
     if (!voiceCapturing) {
