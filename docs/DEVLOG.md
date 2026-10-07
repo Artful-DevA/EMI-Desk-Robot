@@ -1,110 +1,88 @@
 # EMI Development Log
 
-This is the less-formal companion to `CHANGELOG.md`.
+This is my build diary for EMI. Unlike `CHANGELOG.md`, which is mostly about code changes, this is where I keep the actual story: what I built, what broke, what I tested, what fixed it, and how much active development time I have put into the project.
 
-The changelog records what changed in the code. This file records **what actually happened while building EMI**: wrong wires, driver nonsense, hardware migrations, tiny victories, cursed prototypes, and roughly how long milestones took.
-
-Timing is approximate unless a session was explicitly timed. The goal is an honest engineering diary, not fake precision.
+Timing is exact only from the point where I explicitly started tracking it. Work before that is kept as a separate estimate so I do not pretend to have precision I never recorded.
 
 ## Project stats
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **03:15:36 tracked so far** |
-| **Current exact session** | **ACTIVE - 01:24:48 at latest checkpoint** |
-| **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
-| **Completed exact sessions** | 1 |
-| **Current controller** | ESP32-C3 Super Mini |
+| **Exact tracked development time** | **03:21:58 tracked so far** |
+| **Current exact session** | **ACTIVE - 01:31:10 at latest checkpoint** |
+| **Excluded break time** | **01:30:00** |
+| **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
+| **Completed exact sessions** | **1** |
+| **Current controller** | **ESP32-C3 Super Mini** |
 | **Previous controller** | ESP32 DevKit V1 |
-| **Verified hardware** | SH1106 OLED, TTP223 touch, I2S microphone |
+| **Verified hardware** | SH1106 OLED, TTP223 touch sensor, I2S microphone |
 | **Current physical form** | Cable Engineering Edition |
-| **Current software milestone** | C3 Wi-Fi working reliably at 8.5 dBm; normal EMI firmware updated |
-| **Next major milestone** | Reassemble on breadboard, validate Pi -> C3 clock trigger, then stream mic audio in RAM |
+| **Current software milestone** | **Authenticated Raspberry Pi -> physical C3 command path proven end-to-end** |
+| **Current UI milestone** | **Eye-aligned HH:MM clock with clean return animation** |
+| **Next major milestone** | **Stream microphone audio to the Pi in RAM and feed local Whisper** |
 | **Last updated** | 2026-10-07 |
 
-> **Privacy-safe exact-time rule:** the public dev log records only durations, never the clock time when work started or ended. During an active build session, the running elapsed duration is checkpointed here so the tracker does not misleadingly show zero. Exact timestamps may be used privately to calculate the duration, but only the resulting duration is published. The older ~2-hour estimate remains legacy history and is never mixed into the exact total.
+> **Timing rule:** I publish durations, not private clock timestamps. The 1h30m break I reported is excluded completely from the exact development total. The older ~2-hour estimate stays separate and is never mixed into the exact tracked total.
 
 ## Exact session log
 
-| Session | Exact duration | Notes |
-| --- | --- | --- |
-| 1 | 01:50:48 | First exact tracked block; ended before a user-reported 1h30m break |
-| 2 | ACTIVE - 01:24:48 at latest checkpoint | Tracking resumed after the 1h30m break |
-
-## 2026-10-07 - GPIO 9 retired from OLED duty
-
-The OLED clock line was moved from **GPIO 9 to GPIO 7**. GPIO 9 is a BOOT strapping pin on the ESP32-C3, and keeping an I2C pull-up attached there made manual flashing/recovery unnecessarily fragile.
-
-The normal EMI firmware now uses GPIO 7 for OLED SCL and keeps GPIO 9 free for BOOT/download mode.
-
-The user also clarified that there was a **1h30m break** during the exact tracking window. That break has been removed from the exact total rather than counted as development time.
+| Session | Exact active duration | Notes |
+| --- | ---: | --- |
+| 1 | **01:50:48** | First tracked work block |
+| Break | **01:30:00** | Not development time; excluded from totals |
+| 2 | **ACTIVE - 01:31:10** | Work resumed after the break |
+| **Total active tracked work** | **03:21:58** | Break excluded |
 
 ---
 
-## 2026-10-07 - Clock UI cleanup
+## Before exact tracking - the first EMI prototype
 
-The first real Pi-to-EMI clock trigger worked on the physical OLED. Two visual issues showed up immediately:
+**Time:** ~2 hours estimated, kept separate from exact tracking.
 
-- the colon looked optically a little too far left
-- the face-return animation briefly produced an ugly flat line as the eyes came back
+I started EMI on a full-size **ESP32 DevKit V1** because it was easy to breadboard and easy to debug while I was still figuring out what EMI should feel like.
 
-The colon has been shifted 2 pixels to the right. The return transition no longer draws the temporary horizontal eye bars, and the eyes now reopen from a rounded partially-open state instead of a nearly flat 3-pixel shape.
-
-This is the first visual polish pass after the authenticated Pi -> C3 command path was proven end-to-end on hardware.
-
----
-
-## 2026-10-07 - Clock becomes part of the face
-
-The first layout pass still looked too much like a generic four-digit display. The clock is now laid out using Emi's normal eye geometry rather than arbitrary screen coordinates: the hour pair is centered where the left eye normally lives, the minute pair is centered where the right eye normally lives, and both share the normal eye center line.
-
-The digits were reduced slightly in size and the colon was re-centered. The colon also stays visible for the entire short clock hold; blinking it was visually confusing because the display briefly looked like a plain four-digit number.
-
-A previous suggested standalone replacement also exposed a compile-order problem when pasted above the global OLED object. The canonical firmware avoids that entirely by keeping clock drawing inside the existing full firmware after the `display` object declaration.
-
----
-
-## Backstory - before the tracked C3 migration session
-
-**Time tracking:** not recorded.
-
-EMI started as a breadboard prototype around a full-size **ESP32 DevKit V1**. That board was deliberately oversized: it was easy to plug into a breadboard, easy to reach with jumper wires, and much less annoying while the basic behavior was still changing constantly.
-
-The first useful physical stack became:
+My first useful physical stack was:
 
 - ESP32 DevKit V1
 - SH1106 128x64 OLED
 - TTP223 capacitive touch sensor
 - I2S MEMS microphone
-- a truly unreasonable quantity of jumper wires
+- a slightly unreasonable amount of jumper wire
 
-The OLED face came first. Then the eyes stopped being a looping animation and started getting behavior: irregular blinking, gaze changes, curiosity/contentment, reduced repetition, touch recognition, petting sessions, and small attention bids.
+The OLED face came first. I did not want EMI to look like a looping GIF, so I gradually added:
 
-At this point EMI was already recognizably EMI, but his brain was still a board roughly the size of his future torso.
+- irregular blinking
+- quick gaze/saccade movements
+- curiosity and contentment values
+- recent-action memory to reduce repetition
+- several different idle behaviors
+- attention bids
+- touch recognition
+- petting sessions
+- partial contented eye-closes
+- a deeper relaxed blink after sustained petting
+
+At this point EMI already felt recognizably like EMI, even though the controller was still far too large for the final body.
 
 ### The microphone fake-out
 
-The microphone looked dead during early I2S tests. Software was changed, levels were inspected, channel settings were questioned.
+The microphone initially looked dead. I changed software, questioned the channel settings, and inspected the readings.
 
-Then the important discovery: **the microphone header pins were only pushed through the PCB holes and had never actually been soldered.**
+Then I found the actual problem: **the microphone header pins were pushed through the board but had never been soldered.**
 
-That is, in hindsight, an extremely efficient way to build a wireless microphone.
+After soldering the header properly, the microphone started producing real I2S data.
 
-The header was soldered properly, and microphone testing resumed.
+**Result:** mic hardware and the basic I2S path were proven.
 
 ---
 
-## 2026-10-07 - The C3 migration day
+# 2026-10-07 - ESP32-C3 migration day
 
-**Tracked session:** roughly 40-50 minutes of hands-on testing/debugging from the first post-solder mic checks through the compact C3 running the real face and clock command. This is a wall-clock estimate from the session timeline, not a stopwatch measurement.
+## 1. I proved the microphone before changing controllers
 
-### 1. Prove the microphone on the big ESP32
+I tested the newly soldered microphone on the known-good DevKit first so I would not introduce two unknowns at once.
 
-**Rough time:** 5-10 minutes.
-
-We deliberately tested the newly soldered microphone on the known-good ESP32 DevKit V1 first. The idea was simple: do not introduce the C3 as a second unknown until the mic itself is proven.
-
-Prototype mic map:
+The DevKit microphone wiring was:
 
 | Mic | ESP32 DevKit V1 |
 | --- | --- |
@@ -115,351 +93,369 @@ Prototype mic map:
 | SCK | GPIO 26 |
 | SD / SA | GPIO 32 |
 
-The first test displayed microphone level and peak values on the OLED.
+I briefly had L/R on 3.3 V by mistake. Once I put it back on GND, the level readings reacted clearly to speech and nearby sounds.
 
-There was one brief wiring accident where L/R ended up on 3.3 V. Once L/R was returned to GND, the readings were very large and ugly - but they clearly increased when speaking.
+**Result:** microphone validated before the C3 migration.
 
-That was enough. The mic was alive.
+## 2. Windows lost the DevKit serial driver
 
-**Result:** microphone, solder joints, and I2S data path validated.
+The mic firmware compiled, but COM11 disappeared.
 
-### 2. Windows decided COM11 no longer deserved a driver
+Device Manager showed the CP210x bridge with a Code 28 driver problem. I installed the Silicon Labs CP210x driver manually and the port came back.
 
-**Rough time:** 5-10 minutes.
+**Result:** DevKit upload path restored.
 
-The mic test compiled, but upload failed because COM11 had vanished.
+## 3. I brought up the ESP32-C3 Super Mini
 
-Device Manager showed:
+I connected the C3 by itself and used:
 
-> Silicon Labs CP210x USB to UART Bridge (COM11)  
-> Code 28
+- board: **ESP32C3 Dev Module**
+- its Windows COM port
 
-Windows had lost the CP210x driver.
+Windows/Arduino briefly labelled it as an **Ozobot DRVKit**, which it definitely is not.
 
-Windows Update did not fix it, so the Silicon Labs CP210x Universal Windows Driver was installed manually through `silabser.inf`.
-
-After reconnecting the board, the yellow warning triangle disappeared and COM11 worked again.
-
-**Result:** big ESP32 upload path restored.
-
-### 3. Meet the tiny C3 - and apparently Ozobot
-
-**Rough time:** about 10 minutes.
-
-The ESP32-C3 Super Mini was connected by itself and appeared as COM10.
-
-Arduino was set to:
-
-- board: `ESP32C3 Dev Module`
-- port: COM10
-
-Then Windows/Arduino produced one of the better hardware-development moments of the day and labelled the port:
-
-> ESP32 Family Device, Ozobot DRVKit
-
-The board was not, in fact, an Ozobot.
-
-After some board/port picker confusion, the correct `ESP32C3 Dev Module` selection and COM10 were used. An empty sketch uploaded successfully.
+A minimal empty sketch uploaded successfully.
 
 **Result:** C3 USB/upload/reset path validated.
 
-### 4. First C3 OLED
+## 4. I moved the OLED to the C3
 
-**Rough time:** a few minutes.
-
-The OLED moved from the DevKit to the C3:
+The first C3 OLED test used:
 
 | OLED | ESP32-C3 |
 | --- | --- |
 | VCC | 3V3 |
 | GND | GND |
 | SDA | GPIO 8 |
-| SCL | GPIO 9 |
+| SCL | GPIO 9 initially |
 
-The dedicated OLED test displayed `EMI C3 OLED TEST` and `HELLO`.
+The OLED displayed a simple validation screen successfully.
 
-This was the first moment the compact controller actually looked viable instead of theoretical.
+**Result:** OLED worked on the compact controller.
 
-**Result:** OLED on GPIO 8/9 validated.
+## 5. I validated all of the important I/O together
 
-### 5. Full compact IO test
+I connected OLED, touch, and microphone at the same time and ran a deliberately ugly diagnostic firmware.
 
-**Rough time:** 5-10 minutes.
-
-Touch and microphone were added:
+The original validated C3 test map was:
 
 | Function | ESP32-C3 |
 | --- | --- |
 | OLED SDA | GPIO 8 |
-| OLED SCL | GPIO 9 |
+| OLED SCL | GPIO 9 initially |
 | Touch OUT | GPIO 10 |
 | Mic SCK / BCLK | GPIO 4 |
 | Mic WS / LRCLK | GPIO 5 |
 | Mic SD / SA | GPIO 6 |
 | Mic L/R | GND |
 
-A deliberately ugly diagnostic firmware showed giant eyes, touch state, and a live mic meter.
+The OLED, touch input, and live mic meter all worked simultaneously.
 
-It was visually criminal.
+**Result:** the C3 was capable of running EMI's full low-power I/O stack.
 
-It also proved **OLED + touch + mic all worked at the same time on the C3**, which was the only thing that mattered.
+## 6. I moved normal EMI onto the C3
 
-**Result:** the C3 pin map graduated from "planned" to **physically verified**.
+I replaced the diagnostic UI with the real face again and ported the normal behavior:
 
-### 6. Real EMI moves to the C3
-
-The diagnostic face was immediately retired with prejudice.
-
-The normal EMI behavior was ported to the compact controller:
-
-- smooth eyes
-- gaze/idle behavior
+- expressive eyes
+- smooth gaze
 - natural blinking
 - curiosity/contentment
-- recent-action memory
-- touch/petting
+- recent-action anti-repetition
+- idle behavior sequences
 - attention bids
-- lower OLED contrast
+- touch/petting
+- relaxed blink behavior
 
-The microphone stayed connected and verified, but was intentionally left out of the normal face loop until the speech pipeline is built.
+The microphone stayed physically connected and verified, but I intentionally kept speech processing out of the main face loop until the Pi speech pipeline is ready.
 
-At this point the full-size DevKit stopped being the primary EMI controller.
+**Result:** ESP32-C3 Super Mini became EMI's real controller.
 
-**Result:** EMI's actual brain is now the ESP32-C3 Super Mini.
+---
 
-### 7. Mechanical engineering department: jumper cables
+# Building the first useful command: "what time is it?"
 
-There is no 3D printer yet.
+I wanted the first speech feature to be small, deterministic, and actually useful.
 
-The temporary body is therefore:
-
-- phone stand
-- breadboard
-- OLED
-- C3
-- touch sensor
-- microphone
-- enough jumper wires to qualify as load-bearing structure
-
-This configuration is officially known as the **Cable Engineering Edition**.
-
-It is temporary. It is ridiculous. It works.
-
-### 8. First command-driven clock
-
-The next goal became very specific:
-
-> "EMI, what time is it?"
-
-Before adding speech recognition, the display-side behavior was separated into a deterministic command:
+Instead of jumping directly into speech recognition, I created a display-side command:
 
 `SHOW_TIME HH:MM`
 
-Example:
+The C3 validates the 24-hour time, then handles the visual response locally.
 
-`SHOW_TIME 14:37`
-
-The C3 handles the visual behavior itself:
+The first animation became:
 
 1. eyes close
-2. eyes collapse into thin bars
-3. a large custom 7-segment clock reveals from the center
-4. the clock is held briefly
-5. the clock collapses back into eye-lines
-6. eyes reopen
+2. face transitions into a custom 7-segment time display
+3. time holds briefly
+4. clock disappears
+5. eyes return
 
-Touching EMI during the clock dismisses it and returns directly to interaction.
+I reduced the hold from 4.5 seconds to **2 seconds** because the longer version felt like opening an app instead of glancing at the time.
 
-The initial 4.5-second clock hold felt too long. It was reduced to **2.0 seconds**, making the whole thing feel like a quick glance instead of opening an app.
+Touch can cancel the clock and return EMI to normal interaction.
 
-**Result:** the screen-side half of "what time is it?" exists.
-
----
-
-## 2026-10-07 - Teaching the time parser to loosen up
-
-The first hub parser was intentionally strict, but it turned out to be too literal. It understood full phrases like "Emi, can you tell me the time?" but rejected perfectly human requests like "Yo Emi time" and "Yo Emi time is?"
-
-EMI Hub v0.2 now strips harmless greeting/wake-word filler and then checks the remaining phrase against a deterministic set of accepted time requests.
-
-**Result:** casual time requests now map to the same safe `TIME` intent.
+**Result:** the physical display-side endpoint for "what time is it?" existed before speech was connected.
 
 ---
 
-## 2026-10-07 - Local Whisper works on the Pi 400
+# Raspberry Pi speech backend
 
-The Raspberry Pi 400 built current `whisper.cpp` successfully with the ARM CPU backend and BLAS support.
+## Local Whisper
 
-The `tiny.en` model transcribed the bundled 11-second JFK sample correctly.
+I built `whisper.cpp` on the Raspberry Pi 400 and tested the `tiny.en` model on its bundled JFK sample.
 
-Measured benchmark:
+Measured result:
 
-- source audio: 11.0 seconds
-- wall-clock inference command: 4.411 seconds
-- whisper-reported processing total: 4.207 seconds
-- roughly 2.5x faster than real time for this sample
+- sample length: about 11 seconds
+- total processing: about 4.2-4.4 seconds
+- roughly 2.5x faster than real time for that sample
 
-That is comfortably fast enough for the first short command milestone.
+That was fast enough for short command recognition.
 
-### EMI Hub v0.1
+## EMI Hub
 
-A tiny Raspberry Pi service was added under `hub/`.
+I built a small local Raspberry Pi service that turns recognized text into deterministic intents.
 
-For now it intentionally binds only to localhost and accepts recognized text, not audio. It maps a small allow-listed group of time questions to the deterministic `TIME` intent and returns `SHOW_TIME HH:MM`.
-
-Examples include:
+For time requests, it accepts natural variants such as:
 
 - "Emi, what time is it?"
-- "Emi, what's the time?"
-- "Emi, can you tell me the time?"
 - "Emi, tell me the time"
-- "Emi, time?"
+- "Yo Emi time"
 
-The service does not log the original sentence.
+The parser is deliberately deterministic. It does not let a fuzzy classifier directly trigger privileged behavior.
 
-**Result:** local STT is proven and the text-to-time-command half of the Pi hub now exists.
-
----
-
-## 2026-10-07 - The Pi can finally hand EMI a command
-
-The project now has its first real Pi-to-robot transport instead of manually typing `SHOW_TIME` into Serial Monitor.
-
-The hub queues the display command, while the C3 makes an authenticated outbound request for pending work. This was chosen instead of making the Pi chase the C3's DHCP address. It also points in the same direction as the next feature: microphone audio travelling from the C3 to the Pi.
-
-The networking runs in a separate FreeRTOS task so a sleepy network connection should not deliberately turn EMI's eye animation into a slideshow.
-
-Private Wi-Fi credentials and the device token live in local files excluded from Git.
-
-**Result:** after local configuration and flashing, the existing curl time test should make the physical OLED perform the clock morph without Serial Monitor.
+**Result:** local text -> safe intent -> `SHOW_TIME HH:MM` was working on the Pi.
 
 ---
 
-## 2026-10-07 - Wi-Fi tried to reconnect while it was already reconnecting
+# Raspberry Pi -> EMI network bridge
 
-The first C3 network build produced a repeating ESP-IDF message:
+I added the first real Pi-to-robot command transport.
 
-> `wifi:sta is connecting, return error`
+The Raspberry Pi hub queues an allow-listed display command. EMI makes an outbound authenticated request to the Pi approximately four times per second and receives pending work.
 
-The cause was our own retry loop: the C3 started a Wi-Fi connection, then called `WiFi.reconnect()` every few seconds even while the first attempt was still active.
+Important properties:
 
-The network task now owns the full connection lifecycle. It waits up to 15 seconds for an attempt, cleanly resets a timed-out attempt, pauses briefly, and then starts a new one.
+- credentials stay in private `secrets.h`
+- shared token stays out of Git
+- device commands are allow-listed
+- network work runs in a separate FreeRTOS task
+- the face loop keeps running independently
+- current HTTP transport is only for the trusted home LAN prototype
 
-**Result:** no more self-inflicted reconnect spam; the next test can distinguish a real SSID/password/network problem from a retry-loop bug.
-
----
-
-## 2026-10-07 - Router says 2.4 GHz exists, so now we ask the C3 directly
-
-The Pi confirmed that the same SSID is being broadcast on both 2.4 GHz and 5 GHz, with the 2.4 GHz copy on 2412 MHz and a very strong signal.
-
-That means the router is not simply "5 GHz only". A dedicated C3 scan diagnostic was added so the next test can answer the only useful question left at this layer: **can the ESP32-C3 itself see that SSID?**
-
-If it can see the SSID, the problem moves to authentication/configuration. If it cannot, the problem is radio compatibility or router settings.
+This direction also fits the future speech pipeline because microphone audio will travel C3 -> Pi.
 
 ---
 
-## 2026-10-07 - Native USB decided to stop cooperating
+# The Wi-Fi debugging saga
 
-While switching to the temporary Wi-Fi scan sketch, the ESP32-C3 suddenly stopped accepting uploads and `esptool` reported:
+This became by far the most annoying part of the day.
 
-> `Failed to connect to ESP32-C3: No serial data received.`
+## First problem: my reconnect logic fought itself
 
-This is an upload/bootloader problem, not a compile problem: the sketch compiled successfully, but the computer could not get the C3 into the serial bootloader handshake.
+The first network firmware repeatedly printed that the station was already connecting.
 
-The recovery path is the familiar C3 manual boot sequence: hold BOOT, tap RESET, release RESET, then release BOOT and upload again.
+The retry loop was starting new reconnects while an existing connection attempt was still active.
 
----
+I changed the network task so it owns the full connection lifecycle:
 
-## 2026-10-07 - Windows still sees the C3, but the bootloader handshake is failing
+- one connection attempt at a time
+- 15-second timeout
+- clean reset
+- short pause
+- retry
 
-Device Manager shows the board as `USB Serial Device (COM10)` with **"This device is working properly."** That is useful: the USB cable/device path is alive and Windows can enumerate the C3.
+**Result:** the software stopped creating its own Wi-Fi failure.
 
-The failure is now narrower: `esptool` can open the COM port, but the ESP32-C3 is not answering the ROM download handshake. The next recovery attempt is to force download mode at power-up by holding BOOT while plugging USB in, then re-check which COM port Windows assigns before uploading.
+## I proved the network was really visible
 
----
+The router broadcasts the same network on both 2.4 GHz and 5 GHz.
 
-## 2026-10-07 - Stop guessing about Wi-Fi
+The C3 scan could see the correct **2.4 GHz** AP on **channel 1** with a strong signal.
 
-The C3 could see the target SSID at about **-52 dBm** on **channel 1** with WPA2, yet normal firmware still timed out with the coarse Arduino status value `6`.
+So this was not a "C3 cannot use 5 GHz" mistake and it was not a missing network.
 
-Instead of continuing to guess, the normal firmware now scans for the configured SSID immediately before connecting, copies the discovered 2.4 GHz AP's channel and BSSID, and connects directly to that AP. It also listens for the underlying Wi-Fi disconnect event and prints the ESP-IDF reason code so an authentication or handshake failure is visible instead of being collapsed into `WL_DISCONNECTED`.
+## Uploading the C3 also became unreliable
 
-Wi-Fi modem sleep is temporarily disabled as well, removing another variable while the Pi link is brought up.
+At one point `esptool` could not get a serial handshake even though Windows still showed the USB serial device.
 
----
+The recovery sequence that actually worked was:
 
-## 2026-10-07 - Two-stage Wi-Fi test
+1. unplug USB
+2. hold BOOT
+3. plug USB in while still holding BOOT
+4. keep holding for a few seconds
+5. release BOOT
+6. reselect the COM port
+7. upload
 
-The radio scan proved the configured network is visible, but the full firmware still only reported the generic Arduino status `6`. A dedicated connection test was added to collapse the remaining uncertainty in one run.
+That became the reliable recovery path.
 
-It uses the existing private `secrets.h`, first attempts a normal WPA2 connection, and then—only if needed—scans again and retries against the exact visible 2.4 GHz channel and BSSID. Both attempts record the underlying disconnect reason from the Wi-Fi event callback.
+## I added exact Wi-Fi diagnostics
 
-No real SSID or password is hardcoded in the public test.
+Instead of trusting Arduino's generic disconnected status, I added event logging for the underlying ESP-IDF disconnect reason.
 
----
+Then I made a two-stage test:
 
-## 2026-10-07 - Authentication timeout confirmed on both paths
+1. normal connection
+2. direct connection to the exact scanned 2.4 GHz channel and BSSID
 
-The dedicated two-stage connection test failed both the normal connection attempt and the direct BSSID/channel attempt with the same ESP-IDF reason:
+Both failed with:
 
 `AUTH_EXPIRE (2)`
 
-That is much more specific than Arduino's generic `WL_DISCONNECTED` status. The C3 can scan the target AP at a strong signal level, but the authentication exchange itself is timing out before WPA2 key negotiation completes.
+That proved the C3 could see the correct AP, but authentication itself was timing out.
 
-The next troubleshooting target is the 2.4 GHz access-point configuration rather than EMI's application firmware.
+## Router settings did not solve it
+
+I forced the 2.4 GHz side to:
+
+- channel 1
+- 20 MHz width
+
+The exact-BSSID test still returned `AUTH_EXPIRE`.
+
+That made a generic router-channel problem much less convincing.
+
+## The actual fix: 8.5 dBm Wi-Fi TX power
+
+I tested lower transmit powers on the ESP32-C3 Super Mini.
+
+At **8.5 dBm**, the board finally did this:
+
+- associated with the AP
+- obtained a LAN IP
+- stayed connected
+
+This was the breakthrough.
+
+The same SSID, password, channel, and AP that failed before immediately worked when the C3 transmit power was reduced.
+
+The normal firmware now permanently applies:
+
+`WIFI_POWER_8_5dBm`
+
+**Result:** EMI finally had real working Wi-Fi.
 
 ---
 
-## 2026-10-07 - C3 Super Mini TX-power suspicion
+# I moved OLED SCL away from the BOOT strap
 
-After the router was forced to 2.4 GHz channel 1 with 20 MHz width, the direct AP test still failed with `AUTH_EXPIRE (2)`. That made the router-channel theory much less convincing.
+The OLED originally used GPIO 9 for SCL. GPIO 9 is also an ESP32-C3 BOOT strapping pin, which was a bad combination while I was already fighting uploads.
 
-Research turned up a much more specific match: multiple ESP32-C3 Super Mini reports describe the same pattern—network scanning works, RSSI looks reasonable, but authentication expires—and some boards recover when Wi-Fi transmit power is reduced. The working value most often reported is around **8.5 dBm**.
+I moved OLED SCL to **GPIO 7**.
 
-The standalone connection diagnostic now automatically tries 8.5, 11, 5, and 13 dBm against the exact scanned 2.4 GHz BSSID. This should tell us in one upload whether EMI's particular Super Mini has the known RF/power quirk.
+The current verified map is now:
 
----
+| Function | ESP32-C3 Super Mini |
+| --- | --- |
+| OLED SDA | GPIO 8 |
+| OLED SCL | **GPIO 7** |
+| Touch OUT | GPIO 10 |
+| Mic SCK / BCLK | GPIO 4 |
+| Mic WS / LRCLK | GPIO 5 |
+| Mic SD / SA | GPIO 6 |
+| Mic L/R | GND |
 
-## 2026-10-07 - Wi-Fi finally connects
+GPIO 9 is deliberately left free for BOOT/download mode.
 
-The TX-power diagnostic found the actual fix.
-
-At the default transmit-power behavior, the ESP32-C3 Super Mini repeatedly reached `AUTH_EXPIRE (2)`: it could scan the access point, identify the correct 2.4 GHz channel and BSSID, but authentication timed out.
-
-With Wi-Fi TX power set to **8.5 dBm**, the same board immediately progressed through association and DHCP:
-
-- associated with the access point
-- obtained IP `192.168.0.45`
-- remained connected on channel 1
-
-The normal EMI firmware now applies `WIFI_POWER_8_5dBm` before its network task starts. The direct 2.4 GHz AP selection and detailed disconnect diagnostics remain in place.
-
-This was not a bad SSID, bad password, missing 2.4 GHz network, or weak receive signal. It was a board-specific RF/transmit-power quirk on the ESP32-C3 Super Mini.
+**Result:** current breadboard wiring no longer puts the OLED on the C3 BOOT strap.
 
 ---
 
-## Current state
+# The first complete physical Pi -> EMI command worked
 
-EMI now has:
+After the Wi-Fi fix, I ran the real intent request on the Pi.
 
-- compact ESP32-C3 controller
-- verified OLED
-- verified capacitive touch
-- verified I2S microphone
-- normal expressive face/personality firmware
-- deterministic `SHOW_TIME HH:MM` command
-- eyes-to-clock-to-eyes morph
-- temporary Cable Engineering Edition chassis
+The chain was:
 
-## Next milestone
+**text request -> Pi intent parser -> command queue -> authenticated Wi-Fi polling -> ESP32-C3 -> physical OLED**
 
-Make this happen for real:
+And it worked.
 
-> User: "EMI, what time is it?"  
-> Mic -> local speech recognition -> deterministic time intent -> current time -> `SHOW_TIME HH:MM` -> clock morph
+EMI actually changed from his face into the current time and then returned to his face.
 
-The Raspberry Pi will do the heavier local speech processing. The C3 remains responsible for the physical face, touch, microphone endpoint, and display animations.
+This was the first full end-to-end proof that the Raspberry Pi can make the physical robot do something over the network.
+
+**Result:** authenticated Pi -> physical EMI command path proven.
+
+---
+
+# Clock UI polish
+
+The first working version was functional but visually wrong.
+
+## The return-animation line
+
+When the eyes came back after the time, the transition briefly produced an ugly horizontal line.
+
+I removed the temporary flat return bars and changed the eyes so they reopen from a rounded partially-open shape instead.
+
+## The time layout
+
+The first clock felt like a generic four-digit display that happened to be on EMI's screen.
+
+I changed the geometry so the time now belongs to the face:
+
+- the **hour pair is centered on the normal left-eye position**
+- the **minute pair is centered on the normal right-eye position**
+- both groups use the normal eye center line
+- digits are slightly smaller
+- the colon is centered between the two groups
+- the colon stays visible during the short hold
+
+That made a very noticeable difference. The clock now feels like **EMI's eyes becoming the time**, rather than the face being replaced by a dashboard.
+
+I also hit one compile error while experimenting with a standalone clock snippet because that code referenced the OLED `display` object before it had been declared. The full canonical firmware fixes this by keeping all display drawing after the global U8g2 object exists.
+
+**Result:** current clock UI is dramatically cleaner and compiles as part of the complete firmware.
+
+---
+
+# Current state
+
+Right now I have a real networked EMI prototype with:
+
+- ESP32-C3 Super Mini as the active controller
+- SH1106 OLED face
+- TTP223 petting/touch input
+- physically validated I2S microphone
+- OLED SCL moved to GPIO 7
+- GPIO 9 free for BOOT
+- expressive face/personality firmware
+- curiosity/contentment behavior
+- non-repetitive idle actions
+- touch/petting reactions
+- attention bids
+- deterministic `SHOW_TIME HH:MM`
+- eye-aligned clock UI
+- clean clock-to-eyes return
+- working 2.4 GHz Wi-Fi
+- board-specific 8.5 dBm TX-power fix
+- authenticated Raspberry Pi command polling
+- local Raspberry Pi intent parser
+- local `whisper.cpp` proven on the Pi
+- successful physical Pi -> EMI time command
+- private credentials/token excluded from Git
+
+The temporary physical build is still the **Cable Engineering Edition**: breadboard, wires, OLED, sensor, mic, and C3.
+
+---
+
+# Next milestone
+
+The next real step is the microphone path:
+
+**EMI mic -> C3 RAM buffer -> Wi-Fi -> Raspberry Pi RAM -> local Whisper -> deterministic intent -> command -> EMI**
+
+The privacy requirement is strict:
+
+- raw microphone audio is **never written to disk**
+- ordinary conversation is **not saved as transcript**
+- only explicit note mode may retain text later
+
+Once that path is working, the existing time feature can become a real spoken interaction instead of a curl command.
 
 ---
 
@@ -469,4 +465,5 @@ The Raspberry Pi will do the heavier local speech processing. The C3 remains res
 - Windows driver disappearances: **1**
 - ESP32 boards accidentally becoming Ozobots: **1**
 - Diagnostic faces immediately declared awful: **1**
+- Wi-Fi failures caused by a tiny board needing less transmit power: **1 extremely specific one**
 - Structural jumper cables: **many**
