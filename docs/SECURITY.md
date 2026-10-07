@@ -34,7 +34,7 @@ Design goals:
 - no cloud audio upload required
 - microphone modes: off, push-to-talk, always-listen
 - visible listening state on EMI's display
-- raw audio discarded by default after transcription
+- raw audio is never written to disk; only transient RAM buffers are allowed for recognition
 - physical microphone disable control is a possible later addition
 
 ## Project awareness
@@ -169,3 +169,15 @@ Planned protections:
 - backups opt-in
 - clear retention policies
 - easy inspect/export/delete controls
+
+
+## Note mode
+
+Note-taking is explicit and session-based.
+
+- ordinary speech and commands are not saved as transcripts
+- transcription is retained only while note mode is active
+- raw audio is never stored
+- note output may be saved directly as Markdown in a configured Obsidian vault
+- stopping note mode stops transcript retention immediately
+- sensitive information captured during a note session is the user's responsibility to manage, so note mode must always have a visible indicator
