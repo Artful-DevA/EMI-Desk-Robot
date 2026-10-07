@@ -208,7 +208,9 @@ Planned capabilities:
 - routines relevant to features
 - language progress
 - preferences
-- explicit remember / forget
+- explicit memory write/delete commands only
+- ordinary phrases containing words like "remember" or "forget" must never trigger persistent memory changes
+- memory write/delete commands should use longer, unmistakable command phrases and explicit confirmation
 - confidence levels
 - source/provenance
 - last-used / last-confirmed timestamps
