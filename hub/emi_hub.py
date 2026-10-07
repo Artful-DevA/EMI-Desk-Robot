@@ -2,12 +2,17 @@
 
 import hmac
 import http.client
+import io
 import json
 import os
 import queue
 import re
 import time
 import uuid
+import wave
+
+import numpy as np
+import sherpa_onnx
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -18,6 +23,34 @@ SHARED_TOKEN = os.environ.get("EMI_SHARED_TOKEN", "")
 WHISPER_HOST = os.environ.get("EMI_WHISPER_HOST", "127.0.0.1")
 WHISPER_PORT = int(os.environ.get("EMI_WHISPER_PORT", "17841"))
 
+KWS_ROOT = os.path.expanduser(
+    os.environ.get(
+        "EMI_KWS_ROOT",
+        "~/.local/share/emi-kws/"
+        "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01",
+    )
+)
+
+KWS_ENCODER = os.path.join(
+    KWS_ROOT,
+    "encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+)
+KWS_DECODER = os.path.join(
+    KWS_ROOT,
+    "decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+)
+KWS_JOINER = os.path.join(
+    KWS_ROOT,
+    "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+)
+KWS_TOKENS = os.path.join(
+    KWS_ROOT,
+    "tokens.txt",
+)
+KWS_KEYWORDS = os.path.join(
+    KWS_ROOT,
+    "keywords_emi.txt",
+)
 
 MAX_AUDIO_BYTES = 384000
 
@@ -51,6 +84,116 @@ TIME_FORMS = {
 }
 
 COMMANDS = queue.Queue(maxsize=16)
+
+
+def build_keyword_spotter():
+    required = [
+        KWS_ENCODER,
+        KWS_DECODER,
+        KWS_JOINER,
+        KWS_TOKENS,
+        KWS_KEYWORDS,
+    ]
+
+    missing = [
+        path
+        for path in required
+        if not os.path.isfile(path)
+    ]
+
+    if missing:
+        raise RuntimeError(
+            "EMI keyword-spotting model is missing: "
+            + ", ".join(missing)
+        )
+
+    return sherpa_onnx.KeywordSpotter(
+        encoder=KWS_ENCODER,
+        decoder=KWS_DECODER,
+        joiner=KWS_JOINER,
+        tokens=KWS_TOKENS,
+        num_threads=1,
+        keywords_file=KWS_KEYWORDS,
+        provider="cpu",
+    )
+
+
+KWS = build_keyword_spotter()
+
+
+def wav_pcm16_in_memory(wav_bytes: bytes):
+    with wave.open(
+        io.BytesIO(wav_bytes),
+        "rb",
+    ) as wav:
+        if wav.getnchannels() != 1:
+            raise ValueError("expected mono WAV")
+
+        if wav.getsampwidth() != 2:
+            raise ValueError("expected 16-bit PCM WAV")
+
+        sample_rate = wav.getframerate()
+        frames = wav.readframes(
+            wav.getnframes()
+        )
+
+    samples = np.frombuffer(
+        frames,
+        dtype=np.int16,
+    ).astype(np.float32)
+
+    samples /= 32768.0
+
+    return samples, sample_rate
+
+
+def contains_emi_keyword(
+    wav_bytes: bytes,
+) -> bool:
+    samples, sample_rate = (
+        wav_pcm16_in_memory(
+            wav_bytes
+        )
+    )
+
+    stream = KWS.create_stream()
+
+    stream.accept_waveform(
+        sample_rate,
+        samples,
+    )
+
+    # Give the streaming decoder a short clean tail so a wake word
+    # at the end of a short phrase can finish decoding.
+    stream.accept_waveform(
+        sample_rate,
+        np.zeros(
+            int(
+                sample_rate
+                * 0.25
+            ),
+            dtype=np.float32,
+        ),
+    )
+
+    stream.input_finished()
+
+    detected = False
+
+    while KWS.is_ready(stream):
+        KWS.decode_stream(stream)
+
+        result = KWS.get_result(
+            stream
+        )
+
+        if result:
+            detected = True
+            KWS.reset_stream(
+                stream
+            )
+
+    return detected
 
 
 def normalize_text(text: str) -> str:
@@ -217,7 +360,7 @@ def transcribe_wav_in_memory(wav_bytes: bytes) -> str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "emi-hub/0.7"
+    server_version = "emi-hub/0.8"
 
     def _send_bytes(self, status: int, body: bytes, content_type: str):
         self.send_response(status)
@@ -289,11 +432,12 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "service": "emi-hub",
-                    "version": "0.7",
+                    "version": "0.8",
                     "whisper": (
                         f"{WHISPER_HOST}:"
                         f"{WHISPER_PORT}"
                     ),
+                    "wake_detector": "sherpa-onnx-kws",
                 },
             )
             return
@@ -410,6 +554,56 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
+        kws_started = time.monotonic()
+
+        try:
+            wake_detected = (
+                contains_emi_keyword(
+                    wav_bytes
+                )
+            )
+            kws_ms = int(
+                (
+                    time.monotonic()
+                    - kws_started
+                )
+                * 1000
+            )
+            print(
+                f"voice kws_ms={kws_ms} "
+                f"wake={'yes' if wake_detected else 'no'}",
+                flush=True,
+            )
+        except Exception as exc:
+            print(
+                "voice wake detection failed: "
+                f"{type(exc).__name__}",
+                flush=True,
+            )
+
+            self._send_json(
+                503,
+                {
+                    "ok": False,
+                    "error": "WAKE_DETECTOR_UNAVAILABLE",
+                },
+            )
+            return
+
+        if not wake_detected:
+            wav_bytes = b""
+
+            self._send_json(
+                200,
+                {
+                    "ok": False,
+                    "intent": None,
+                    "error": "NO_WAKE_WORD",
+                    "kws_ms": kws_ms,
+                },
+            )
+            return
+
         whisper_started = time.monotonic()
 
         try:
@@ -464,29 +658,15 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
-        if not has_emi_wake_word(
-            transcript
-        ):
-            print(
-                "voice=no_wake_word",
-                flush=True,
-            )
-
-            self._send_json(
-                200,
-                {
-                    "ok": False,
-                    "intent": None,
-                    "error": "NO_WAKE_WORD",
-                    "whisper_ms": whisper_ms,
-                },
-            )
-            return
-
+        # The dedicated acoustic keyword spotter already proved
+        # that this audio contained the explicit EMI wake word.
+        # Whisper only has to recover the command words now, so a
+        # transcription such as "time" is sufficient after KWS=yes.
         result = parse_intent(
             transcript
         )
 
+        result["kws_ms"] = kws_ms
         result["whisper_ms"] = whisper_ms
 
         transcript = ""
@@ -620,13 +800,14 @@ def main():
     )
 
     print(
-        f"emi-hub 0.7 listening on "
+        f"emi-hub 0.8 listening on "
         f"{HOST}:{PORT}",
         flush=True,
     )
 
     print(
         "voice path uses in-memory WAV -> "
+        "sherpa-onnx EMI keyword spotter -> "
         f"whisper-server at "
         f"{WHISPER_HOST}:{WHISPER_PORT}",
         flush=True,
