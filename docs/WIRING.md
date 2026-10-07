@@ -1,54 +1,67 @@
 # Wiring
 
-This document describes the **current breadboard prototype**, which uses an ESP32 DevKit V1. The final EMI is planned around an ESP32-C3 Mini and will get a separate verified pin map before permanent wiring.
+The ESP32-C3 Super Mini pin map below has now been **physically validated** with the OLED, TTP223 touch sensor, and I2S microphone operating together.
 
-## OLED - SH1106 128x64 I2C
+## Verified ESP32-C3 wiring
 
-| OLED pin | ESP32 DevKit V1 |
+### OLED - SH1106 128x64 I2C
+
+| OLED pin | ESP32-C3 Super Mini |
 | --- | --- |
 | VCC | 3V3 |
 | GND | GND |
-| SDA | GPIO 21 |
-| SCL | GPIO 22 |
+| SDA | GPIO 8 |
+| SCL | GPIO 9 |
 
-The OLED is a 4-pin I2C module with no separate reset pin.
+### TTP223 capacitive touch sensor
 
-## TTP223 capacitive touch sensor
-
-| TTP223 pin | ESP32 DevKit V1 |
+| TTP223 pin | ESP32-C3 Super Mini |
 | --- | --- |
 | VCC | 3V3 |
 | GND | GND |
-| OUT | GPIO 27 |
+| OUT | GPIO 10 |
 
-The default firmware expects the TTP223 output to go HIGH when touched.
+The firmware expects the TTP223 output to go HIGH when touched.
 
-## I2S MEMS microphone
+### I2S MEMS microphone
 
-Current prototype wiring:
-
-| Mic pin | ESP32 DevKit V1 |
+| Mic pin | ESP32-C3 Super Mini |
 | --- | --- |
-| VCC | 3V3 |
+| VDD / VCC | 3V3 |
 | GND | GND |
 | L/R | GND |
-| WS | GPIO 25 |
-| SCK | GPIO 26 |
-| SA / SD | GPIO 32 |
+| SCK / BCLK | GPIO 4 |
+| WS / LRCLK | GPIO 5 |
+| SD / SA | GPIO 6 |
 
-The label `SA` on the module is being treated as the microphone's serial audio data output. This subsystem is not yet considered validated.
+This microphone mapping has been validated with live audio data. The microphone responds to speech and nearby sounds.
 
-The header pins must be soldered to the microphone PCB. Simply pushing loose header pins through plated holes is not a reliable electrical connection.
+The microphone header pins must be soldered to the PCB. Loose header pins pushed through the plated holes are not a reliable electrical connection.
 
-## Breadboard power
+## Previous ESP32 DevKit V1 prototype map
 
-For the prototype:
+The earlier breadboard prototype used the following mapping:
 
-- ESP32 3V3 can feed the breadboard 3.3 V rail.
-- ESP32 GND can feed the breadboard ground rail.
-- OLED, touch sensor, and microphone share those rails.
+| Function | ESP32 DevKit V1 |
+| --- | --- |
+| OLED SDA | GPIO 21 |
+| OLED SCL | GPIO 22 |
+| Touch OUT | GPIO 27 |
+| Mic WS | GPIO 25 |
+| Mic SCK | GPIO 26 |
+| Mic SD / SA | GPIO 32 |
 
-Sharing a power rail does **not** mean the devices share signal pins. Only their power and ground are common.
+This map is retained only as a reference for the earlier prototype.
+
+## Power distribution
+
+For the low-power electronics:
+
+- OLED, TTP223, and microphone use 3.3 V.
+- They may share the same 3.3 V rail.
+- They may share the same GND rail.
+- Signal pins remain separate.
+- All grounds in the final robot must be common.
 
 ## Planned servo wiring
 
@@ -65,17 +78,14 @@ When added:
 Important:
 
 - Do **not** power the SG90 from 3.3 V.
-- All grounds must be common.
 - Put the electrolytic capacitor across servo 5 V and GND near the servo supply path.
 - Capacitor positive goes to 5 V.
 - Capacitor negative, usually marked by a stripe, goes to GND.
 
 ## Final build power distribution
 
-The final robot will not need a breadboard. The same idea can be implemented with a small soldered distribution point or perfboard:
+The final robot will not need a breadboard. The same power layout can be implemented with a small soldered distribution point or perfboard:
 
-- one 3.3 V connection branches to low-power 3.3 V devices
+- one 3.3 V connection branches to the low-power 3.3 V devices
 - one GND connection branches to all devices
 - servo uses the 5 V path, not the 3.3 V path
-
-No extra controller is required merely to split power.
