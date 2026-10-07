@@ -2,6 +2,14 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Prepare first spoken-command test
+
+### Changed
+
+- added one-per-second VAD diagnostics for microphone level, learned noise floor, and trigger threshold
+- EMI Hub now accepts both `Emi` and the common Whisper spelling `Emmy` as deterministic wake addresses
+- wake matching remains exact and allow-listed; no fuzzy classifier can trigger an action
+
 ## 2026-10-07 - Add live C3 voice capture
 
 ### Added
