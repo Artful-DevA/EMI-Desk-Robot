@@ -150,6 +150,56 @@ WiFi.setTxPower(WIFI_POWER_8_5dBm);
 
 Do not remove this while using the current board.
 
+## Live voice-control test
+
+The current normal C3 firmware now includes the first always-armed local VAD path.
+
+After boot:
+
+- a tiny hollow dot in the OLED top-right means microphone VAD is armed
+- the dot becomes filled while EMI is capturing or processing a voice command
+- the microphone calibrates against room noise for roughly the first second
+- captured command audio remains in RAM and is uploaded as an authenticated WAV request to the Pi
+
+Before flashing the voice firmware, confirm both Pi services are healthy:
+
+```bash
+curl -s http://127.0.0.1:17840/health
+systemctl --user status emi-whisper --no-pager -l
+```
+
+Expected hub health:
+
+```json
+{"ok":true,"service":"emi-hub","version":"0.4","whisper":"127.0.0.1:17841"}
+```
+
+After flashing the C3, open Serial Monitor at 115200. Expected voice startup output includes:
+
+```text
+Voice monitor: calibrating room noise...
+Voice monitor ready. Noise floor: ...
+Voice control: ON (local VAD -> Pi Whisper)
+```
+
+Then say a short command clearly:
+
+```text
+Emi, what's the time?
+```
+
+Expected C3 diagnostics:
+
+```text
+Voice: speech detected.
+Voice: captured ... samples; sending to Pi.
+Voice upload HTTP status: 200
+```
+
+If Whisper recognizes the wake address and time request, the existing Pi command queue should then trigger EMI's physical clock animation.
+
+The v1 recorder is capped at about three seconds. This is deliberate for RAM safety and is only the first short-command implementation.
+
 ## Testing the physical Pi -> EMI command
 
 Once the Raspberry Pi hub is running and EMI is connected, send an intent request from the Pi:
