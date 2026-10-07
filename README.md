@@ -48,6 +48,7 @@ Planned:
 - `docs/CONNECTIVITY.md` - desktop, laptop, phone, Wi-Fi, and travel architecture
 - `docs/SECURITY.md` - privacy and desktop-control design
 - `docs/ROADMAP.md` - development roadmap
+- `docs/DEVLOG.md` - build diary, debugging stories, and approximate milestone timing
 - `CHANGELOG.md` - firmware behavior changes
 
 ## Current prototype wiring
