@@ -84,18 +84,24 @@ const int VOICE_PRE_ROLL_SAMPLES = 4096;
 const int VOICE_MAX_SAMPLES = VOICE_SAMPLE_RATE * 3;
 const int VOICE_MIN_SAMPLES = VOICE_SAMPLE_RATE / 2;
 
-const int VOICE_CALIBRATION_BLOCKS = 75;
-const int VOICE_START_BLOCKS = 3;
-const int VOICE_END_SILENT_BLOCKS = 44;
+const int VOICE_CALIBRATION_BLOCKS = 125;
 
-// Real C3 mic measurements showed a room/noise floor around 4k-6k
-// while speech peaks were only around 7k+. The original 3x threshold
-// therefore made speech mathematically impossible to trigger.
-// Use an additive margin instead: learned floor + 900, with a sane
-// minimum threshold to avoid very quiet-room false starts.
-const float VOICE_THRESHOLD_MULTIPLIER = 1.0f;
-const float VOICE_THRESHOLD_OFFSET = 900.0f;
-const float VOICE_MIN_THRESHOLD = 4500.0f;
+// False-trigger fix: do not trigger from a single noisy block.
+// A start window is 8 x 16 ms = ~128 ms, and EMI requires three
+// consecutive above-threshold window decisions before recording.
+const int VOICE_START_WINDOW_BLOCKS = 8;
+const int VOICE_START_CONFIRM_WINDOWS = 3;
+
+// Roughly half a second of quiet ends a phrase.
+const int VOICE_END_SILENT_BLOCKS = 32;
+
+// Physical mic tuning from real EMI measurements.
+// Speech must lift the short-term average above the learned room floor
+// by a meaningful margin, rather than merely producing one transient spike.
+const float VOICE_START_MARGIN = 1400.0f;
+const float VOICE_RELEASE_MARGIN = 650.0f;
+const float VOICE_MIN_START_THRESHOLD = 5200.0f;
+const float VOICE_MIN_RELEASE_THRESHOLD = 4500.0f;
 const int VOICE_PCM_GAIN = 4;
 
 int32_t voiceI2SBlock[VOICE_I2S_BLOCK_SAMPLES];
@@ -3549,6 +3555,76 @@ bool uploadVoiceWav(
   );
 
 
+  String responseBody =
+    http.getString();
+
+
+  if (
+    status ==
+    200
+  ) {
+
+    if (
+      responseBody.indexOf(
+        "\"intent\":\"TIME\""
+      )
+      >=
+      0
+    ) {
+
+      Serial.println(
+        "Voice result: TIME intent matched."
+      );
+    }
+
+    else if (
+      responseBody.indexOf(
+        "\"error\":\"NO_WAKE_WORD\""
+      )
+      >=
+      0
+    ) {
+
+      Serial.println(
+        "Voice result: no Emi wake word."
+      );
+    }
+
+    else if (
+      responseBody.indexOf(
+        "\"error\":\"NO_SPEECH\""
+      )
+      >=
+      0
+    ) {
+
+      Serial.println(
+        "Voice result: Whisper found no speech."
+      );
+    }
+
+    else if (
+      responseBody.indexOf(
+        "\"error\":\"NO_MATCH\""
+      )
+      >=
+      0
+    ) {
+
+      Serial.println(
+        "Voice result: speech heard, no known command."
+      );
+    }
+
+    else {
+
+      Serial.println(
+        "Voice result: HTTP 200, unclassified response."
+      );
+    }
+  }
+
+
   http.end();
 
 
@@ -3586,8 +3662,18 @@ void voiceTask(
   int calibrationBlocks =
     0;
 
-  int loudBlocks =
+  int startWindowWrite =
     0;
+
+  int startWindowCount =
+    0;
+
+  int startConfirmWindows =
+    0;
+
+  float startWindow[
+    VOICE_START_WINDOW_BLOCKS
+  ] = {0};
 
   int silentBlocks =
     0;
@@ -3610,7 +3696,7 @@ void voiceTask(
 
 
   voiceMonitorReady =
-    true;
+    false;
 
 
   Serial.println(
@@ -3794,6 +3880,9 @@ void voiceTask(
         VOICE_CALIBRATION_BLOCKS
       ) {
 
+        voiceMonitorReady =
+          true;
+
         Serial.print(
           "Voice monitor ready. Noise floor: "
         );
@@ -3808,18 +3897,100 @@ void voiceTask(
     }
 
 
-    float threshold =
+    // Keep a rolling short-term activity average.
+    startWindow[
+      startWindowWrite
+    ] =
+      level;
+
+    startWindowWrite =
+      (
+        startWindowWrite +
+        1
+      )
+      %
+      VOICE_START_WINDOW_BLOCKS;
+
+    if (
+      startWindowCount <
+      VOICE_START_WINDOW_BLOCKS
+    ) {
+
+      startWindowCount++;
+    }
+
+
+    float windowAverage =
+      0.0f;
+
+    for (
+      int i = 0;
+      i < startWindowCount;
+      i++
+    ) {
+
+      windowAverage +=
+        startWindow[i];
+    }
+
+    if (
+      startWindowCount >
+      0
+    ) {
+
+      windowAverage /=
+        startWindowCount;
+    }
+
+
+    // Track quiet-room changes asymmetrically:
+    // fall fairly quickly when the room gets quieter, but rise only
+    // very slowly so a person speaking does not redefine "silence".
+    if (
+      !voiceCapturing
+    ) {
+
+      if (
+        level <
+        noiseFloor
+      ) {
+
+        noiseFloor =
+          noiseFloor *
+          0.97f +
+          level *
+          0.03f;
+      }
+
+      else if (
+        level <
+        noiseFloor +
+        700.0f
+      ) {
+
+        noiseFloor =
+          noiseFloor *
+          0.998f +
+          level *
+          0.002f;
+      }
+    }
+
+
+    float startThreshold =
       max(
-        VOICE_MIN_THRESHOLD,
-        noiseFloor *
-          VOICE_THRESHOLD_MULTIPLIER +
-          VOICE_THRESHOLD_OFFSET
+        VOICE_MIN_START_THRESHOLD,
+        noiseFloor +
+        VOICE_START_MARGIN
       );
 
 
-    bool loud =
-      level >
-      threshold;
+    float releaseThreshold =
+      max(
+        VOICE_MIN_RELEASE_THRESHOLD,
+        noiseFloor +
+        VOICE_RELEASE_MARGIN
+      );
 
 
     if (
@@ -3841,6 +4012,14 @@ void voiceTask(
       );
 
       Serial.print(
+        " avg="
+      );
+
+      Serial.print(
+        windowAverage
+      );
+
+      Serial.print(
         " noise="
       );
 
@@ -3849,38 +4028,54 @@ void voiceTask(
       );
 
       Serial.print(
-        " threshold="
+        " start="
       );
 
       Serial.println(
-        threshold
+        startThreshold
       );
     }
 
 
     if (!voiceCapturing) {
 
-      if (!loud) {
+      // Do not start a command until the network path is actually ready.
+      if (
+        WiFi.status() !=
+        WL_CONNECTED
+      ) {
 
-        noiseFloor =
-          noiseFloor *
-          0.995f +
-          level *
-          0.005f;
-
-        loudBlocks =
+        startConfirmWindows =
           0;
+
+        continue;
+      }
+
+
+      bool sustainedSpeech =
+        startWindowCount ==
+          VOICE_START_WINDOW_BLOCKS &&
+        windowAverage >
+          startThreshold;
+
+
+      if (
+        sustainedSpeech
+      ) {
+
+        startConfirmWindows++;
       }
 
       else {
 
-        loudBlocks++;
+        startConfirmWindows =
+          0;
       }
 
 
       if (
-        loudBlocks >=
-        VOICE_START_BLOCKS
+        startConfirmWindows >=
+        VOICE_START_CONFIRM_WINDOWS
       ) {
 
         voiceCapturing =
@@ -3889,7 +4084,7 @@ void voiceTask(
         silentBlocks =
           0;
 
-        loudBlocks =
+        startConfirmWindows =
           0;
 
         recordedSamples =
@@ -3958,7 +4153,10 @@ void voiceTask(
     }
 
 
-    if (loud) {
+    if (
+      level >
+      releaseThreshold
+    ) {
 
       silentBlocks =
         0;
@@ -4013,8 +4211,22 @@ void voiceTask(
       silentBlocks =
         0;
 
-      loudBlocks =
+      startConfirmWindows =
         0;
+
+      startWindowWrite =
+        0;
+
+      startWindowCount =
+        0;
+
+      memset(
+        startWindow,
+        0,
+        sizeof(
+          startWindow
+        )
+      );
 
 
       i2s_zero_dma_buffer(
@@ -4022,9 +4234,11 @@ void voiceTask(
       );
 
 
+      // Let the room settle after a command so the tail of the previous
+      // phrase or HTTP/Wi-Fi activity does not immediately retrigger VAD.
       vTaskDelay(
         pdMS_TO_TICKS(
-          400
+          1200
         )
       );
     }
