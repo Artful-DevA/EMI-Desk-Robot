@@ -811,7 +811,7 @@ void drawLargeClock(bool colonOn) {
   if (colonOn) {
 
     display.drawRBox(
-      63,
+      65,
       25,
       4,
       4,
@@ -819,7 +819,7 @@ void drawLargeClock(bool colonOn) {
     );
 
     display.drawRBox(
-      63,
+      65,
       37,
       4,
       4,
@@ -1031,48 +1031,8 @@ void drawClockTransition() {
     }
 
 
-    int eyeBarWidth =
-      (int)(
-        EYE_WIDTH *
-        t
-      );
-
-
-    if (
-      eyeBarWidth >
-      0
-    ) {
-
-      int leftCenter =
-        LEFT_EYE_X +
-        EYE_WIDTH / 2;
-
-      int rightCenter =
-        RIGHT_EYE_X +
-        EYE_WIDTH / 2;
-
-
-      display.drawRBox(
-        leftCenter -
-          eyeBarWidth / 2,
-        EYE_CENTER_Y - 1,
-        eyeBarWidth,
-        3,
-        1
-      );
-
-
-      display.drawRBox(
-        rightCenter -
-          eyeBarWidth / 2,
-        EYE_CENTER_Y - 1,
-        eyeBarWidth,
-        3,
-        1
-      );
-    }
-
-
+    // Do not draw flat horizontal eye bars here.
+    // They looked like a full line for one frame as the face returned.
     return;
   }
 
@@ -1092,9 +1052,16 @@ void drawClockTransition() {
         CLOCK_EYE_OPEN_MS;
 
 
+    // Start from a rounded, partially-open eye shape instead of
+    // a fully closed 3-pixel bar, which avoids the visible line flash.
+    const float startClosure = 0.72f;
+
     drawEyesWithClosure(
-      1.0f -
-      smoothStep(t)
+      startClosure *
+      (
+        1.0f -
+        smoothStep(t)
+      )
     );
   }
 }
