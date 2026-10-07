@@ -30,7 +30,10 @@ whisper-server on 127.0.0.1:17841
         |
         | transient transcript
         v
-wake-word check: "Emi ..."
+Silero speech VAD
+        |
+        v
+exact Emi wake-word check
         |
         v
 deterministic intent parser
@@ -115,7 +118,8 @@ The service runs the already-built whisper.cpp server on:
 
 using:
 
-`~/whisper.cpp/models/ggml-tiny.en.bin`
+- `~/whisper.cpp/models/ggml-tiny.en.bin`
+- `~/whisper.cpp/models/ggml-silero-v6.2.0.bin` for speech VAD
 
 It is localhost-only; the ESP32 never talks directly to Whisper.
 
@@ -149,7 +153,7 @@ Check the hub:
 curl -s http://127.0.0.1:17840/health
 ```
 
-The response should report version `0.5` and Whisper on `127.0.0.1:17841`.
+The response should report version `0.7` and Whisper on `127.0.0.1:17841`.
 
 ## Test Whisper without EMI
 
@@ -187,8 +191,10 @@ Before EMI gains privileged desktop actions, the transport should move to a stro
 
 ## Whisper command tuning
 
-The current hub sends a short initial prompt containing the proper name `Emi` and the current time-command wording. Command requests also disable timestamp and token-timestamp generation because EMI only needs the recognized text.
+The current hub does not use a phrase prompt. This avoids biasing non-speech clips toward a command.
 
-Wake-word gating remains deterministic rather than fuzzy. The accepted exact spellings cover the most common tiny.en renderings of the spoken name.
+The local whisper.cpp server now runs Silero VAD before transcription. That provides a speech-specific gate for clips that may have been triggered by keyboard, tapping, or other acoustic energy.
+
+Wake-word gating remains deterministic rather than fuzzy. The explicit wake name may appear at the beginning, middle, or end of a supported phrase.
 
 For performance diagnostics, the hub logs only Whisper processing duration (for example `voice whisper_ms=...`), never the recognized transcript.
