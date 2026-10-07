@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **01:31:42 tracked so far** |
-| **Current exact session** | **ACTIVE - 01:31:42 at latest checkpoint** |
+| **Exact tracked development time** | **01:37:37 tracked so far** |
+| **Current exact session** | **ACTIVE - 01:37:37 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
 | **Completed exact sessions** | 0 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -28,7 +28,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Session | Exact duration | Notes |
 | --- | --- | --- |
-| 1 | ACTIVE - 01:31:42 at latest checkpoint | Exact tracking enabled; session is still running |
+| 1 | ACTIVE - 01:37:37 at latest checkpoint | Exact tracking enabled; session is still running |
 
 ## Backstory - before the tracked C3 migration session
 
