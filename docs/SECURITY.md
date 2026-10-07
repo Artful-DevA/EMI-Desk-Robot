@@ -103,6 +103,16 @@ Recommended tiers:
 
 Forgetting should mean deletion from active memory, not pretending to forget.
 
+Memory-changing voice commands must be deliberately high-friction and unambiguous. The words "remember" and "forget" by themselves are never enough to modify persistent memory. Casual speech such as "EMI, remember that one time..." must be treated as ordinary conversation.
+
+Recommended command pattern:
+
+- write: "EMI, store the following as a persistent memory: ..."
+- delete: "EMI, permanently delete the following memory: ..."
+- require a confirmation step before committing either operation
+- a confirmation should itself be explicit, e.g. "confirm save" or "confirm delete"
+- no fuzzy intent classification should be allowed to trigger memory writes or deletes
+
 When the user asks EMI to forget something:
 
 - remove the record from the active database
