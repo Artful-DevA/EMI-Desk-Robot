@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **05:43:00 tracked so far** |
-| **Current exact session** | **ACTIVE - 03:52:12 at latest checkpoint** |
+| **Exact tracked development time** | **05:53:33 tracked so far** |
+| **Current exact session** | **ACTIVE - 04:02:45 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 03:52:12** | Work resumed after the break |
-| **Total active tracked work** | **05:43:00** | Break excluded |
+| 2 | **ACTIVE - 04:02:45** | Work resumed after the break |
+| **Total active tracked work** | **05:53:33** | Break excluded |
 
 ---
 
@@ -548,6 +548,20 @@ The detector also requires about 240 ms of sustained speech-like energy before i
 If the Pi matches the TIME intent, the test firmware displays the returned HH:MM directly on the OLED. If it fails, Serial tells me whether the failure was no speech, no Emi wake word, no command match, or HTTP/backend failure without logging the actual transcript.
 
 **Result:** I now have a much cleaner test that can identify the first broken stage without the full EMI runtime getting in the way.
+
+---
+
+# 2026-10-07 - The detector is working; speech recognition is now the bottleneck
+
+The latest physical test finally showed the VAD behaving properly: EMI starts and stops recording at the right times instead of constantly false-triggering.
+
+The failure moved downstream. The Pi returned HTTP 200 and recognized that speech existed, but tiny.en did not recognize the wake name reliably. The delay before getting that failure also felt too long.
+
+I left the working detector alone and changed only the Pi side. EMI Hub v0.5 now gives Whisper a short initial prompt containing the name Emi and the current time-command phrasing. I also added a small exact alias set for common recognizer spellings instead of adding fuzzy wake matching.
+
+For latency, command transcription no longer asks Whisper for timestamps or token timestamps, which are unnecessary for a short command. The hub also records only the inference duration in milliseconds so I can measure the delay without logging the recognized transcript.
+
+**Result:** the next test can reuse the same C3 firmware. I only need to update and restart the Pi hub, then try "Emi, what's the time?" again.
 
 ---
 
