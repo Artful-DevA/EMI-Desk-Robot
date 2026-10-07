@@ -1,4 +1,12 @@
-# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Add C3 Wi-Fi visibility diagnostic
+# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Make Wi-Fi scan output impossible to miss
+
+### Changed
+
+- the C3 Wi-Fi diagnostic now waits briefly for USB Serial to appear
+- Wi-Fi scans repeat every 10 seconds instead of printing only once during boot
+- added clear scan-complete and next-scan messages for easier USB/Serial debugging
+
+## 2026-10-07 - Add C3 Wi-Fi visibility diagnostic
 
 ### Added
 
