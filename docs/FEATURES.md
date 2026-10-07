@@ -31,6 +31,9 @@ The following features are physically working now:
 - authenticated in-memory voice WAV endpoint on the Pi
 - localhost-only whisper.cpp HTTP service for transient command transcription
 - microphone voice path requires an explicit `Emi` wake address before executing an intent
+- live C3 I2S microphone VAD/capture in normal firmware
+- RAM-only short voice-command WAV upload from C3 to Pi
+- tiny visible microphone status indicator on the OLED
 
 The next active implementation target is the privacy-preserving microphone path: C3 RAM -> Wi-Fi -> Pi RAM -> local Whisper, with raw audio never written to disk.
 
