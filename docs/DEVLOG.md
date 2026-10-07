@@ -10,6 +10,22 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
+| **Exact tracked development time** | **00:00:00 completed** |
+| **Exact tracking began** | **2026-10-07 14:39:12 +03:00** |
+| **Current session** | **ACTIVE - started 2026-10-07 14:39:12 +03:00** |
+| **Legacy work before exact tracking** | ~45 minutes documented separately; not included in the exact total |
+| **Tracked exact sessions completed** | 0 |
+| **Current controller** | ESP32-C3 Super Mini |
+| **Previous controller** | ESP32 DevKit V1 |
+| **Verified hardware** | SH1106 OLED, TTP223 touch, I2S microphone |
+| **Current physical form** | Cable Engineering Edition |
+| **Current software milestone** | `SHOW_TIME HH:MM` with eyes-to-clock morph |
+| **Next major milestone** | Spoken "EMI, what time is it?" -> local STT -> `SHOW_TIME` |
+| **Last updated** | 2026-10-07 |
+
+> **Exact-time rule from this point onward:** no estimated durations are added to the exact total. Every development session must have an exact start timestamp, exact stop timestamp, exact session duration, and cumulative exact duration. The older ~45-minute estimate stays visible as legacy history but never gets mixed into the exact total.
+
+--- | --- |
 | **Recorded hands-on development time** | **~45 minutes** (roughly 40-50 min currently documented) |
 | **Historical work before time tracking** | Not reliably timed, so it is **not** added to the total |
 | **Tracked build sessions** | 1 |
@@ -24,6 +40,12 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 > **Time-tracking rule:** only time that can be estimated reasonably from a real build session gets added to the recorded total. Earlier work is kept in the history but does not get fake precision retroactively.
 
 ---
+
+## Exact session log
+
+| Session | Start | End | Exact duration | Notes |
+| --- | --- | --- | --- | --- |
+| 1 | 2026-10-07 14:39:12 +03:00 | ACTIVE | ACTIVE | Exact tracking enabled; continuing EMI development |
 
 ## Backstory - before the tracked C3 migration session
 
