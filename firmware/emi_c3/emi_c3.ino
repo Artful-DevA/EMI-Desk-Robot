@@ -3,7 +3,7 @@
 #include <U8g2lib.h>
 
 // ============================================================
-// EMI - Normal ESP32-C3 Firmware
+// EMI - Normal ESP32-C3 Firmware + SHOW_TIME command
 // Board: ESP32C3 Dev Module
 // Controller: ESP32-C3 Super Mini
 //
@@ -16,22 +16,18 @@
 //   MIC SD    -> GPIO 6
 //   MIC L/R   -> GND
 //
-// This build keeps the normal Emi face/personality behavior.
-// The microphone is physically connected and verified, but this
-// everyday face firmware does not yet use it for listening.
+// Serial command for the current milestone:
+//   SHOW_TIME HH:MM
 //
-// Clean everyday build:
-// - expressive eyes
-// - natural idle behavior
-// - curiosity/contentment state
-// - normal + rare double blinks
-// - occasional attention-seeking blink
-// - quick attention when petted
-// - gentle contented eye-close on strokes
+// Example:
+//   SHOW_TIME 14:37
 //
-// No diagnostic overlays.
-// No clock demo.
-// No timer demo.
+// Emi closes his eyes, morphs into a large 7-segment clock,
+// holds the time briefly, then morphs back into his normal face.
+//
+// The microphone is physically connected and verified, but speech
+// recognition is not wired into this build yet. The Pi will later
+// send this same SHOW_TIME command after local speech recognition.
 // ============================================================
 
 
@@ -208,6 +204,40 @@ float petStrokeMaxClosure = 0.27f;
 
 bool relaxedBlinkPending = false;
 bool relaxedBlinkDone = false;
+
+
+// ------------------------------------------------------------
+// CLOCK UI
+// ------------------------------------------------------------
+
+enum ClockState {
+  CLOCK_OFF = 0,
+  CLOCK_EYES_CLOSING,
+  CLOCK_REVEALING,
+  CLOCK_HOLDING,
+  CLOCK_HIDING,
+  CLOCK_EYES_OPENING
+};
+
+ClockState clockState = CLOCK_OFF;
+
+unsigned long clockStageStart = 0;
+
+const unsigned long CLOCK_EYE_CLOSE_MS = 420;
+const unsigned long CLOCK_REVEAL_MS = 440;
+const unsigned long CLOCK_HOLD_MS = 4500;
+const unsigned long CLOCK_HIDE_MS = 380;
+const unsigned long CLOCK_EYE_OPEN_MS = 480;
+
+int shownHour = 12;
+int shownMinute = 34;
+
+
+// ------------------------------------------------------------
+// SERIAL COMMAND INPUT
+// ------------------------------------------------------------
+
+String serialCommand;
 
 
 // ------------------------------------------------------------
@@ -461,16 +491,16 @@ float getPetStrokeClosure() {
 
 
 // ------------------------------------------------------------
-// DRAW EMI
+// FACE DRAWING
 // ------------------------------------------------------------
 
-void drawEmi() {
-
-  display.clearBuffer();
-
+void drawEyesWithClosure(float forcedClosure) {
 
   float closure =
-    getBlinkClosure();
+    max(
+      forcedClosure,
+      getBlinkClosure()
+    );
 
 
   float petClosure =
@@ -541,9 +571,987 @@ void drawEmi() {
     eyeHeight,
     radius
   );
+}
+
+
+// ------------------------------------------------------------
+// 7-SEGMENT CLOCK DRAWING
+// ------------------------------------------------------------
+
+// Segment bits:
+//   A
+// F   B
+//   G
+// E   C
+//   D
+
+const uint8_t SEG_A = 1 << 0;
+const uint8_t SEG_B = 1 << 1;
+const uint8_t SEG_C = 1 << 2;
+const uint8_t SEG_D = 1 << 3;
+const uint8_t SEG_E = 1 << 4;
+const uint8_t SEG_F = 1 << 5;
+const uint8_t SEG_G = 1 << 6;
+
+
+uint8_t digitSegments(int digit) {
+
+  static const uint8_t map[10] = {
+    SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F,
+    SEG_B | SEG_C,
+    SEG_A | SEG_B | SEG_G | SEG_E | SEG_D,
+    SEG_A | SEG_B | SEG_G | SEG_C | SEG_D,
+    SEG_F | SEG_G | SEG_B | SEG_C,
+    SEG_A | SEG_F | SEG_G | SEG_C | SEG_D,
+    SEG_A | SEG_F | SEG_G | SEG_E | SEG_C | SEG_D,
+    SEG_A | SEG_B | SEG_C,
+    SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F | SEG_G,
+    SEG_A | SEG_B | SEG_C | SEG_D | SEG_F | SEG_G
+  };
+
+
+  if (
+    digit < 0 ||
+    digit > 9
+  ) {
+
+    return 0;
+  }
+
+
+  return map[digit];
+}
+
+
+void drawSegmentDigit(
+  int x,
+  int y,
+  int digit
+) {
+
+  const int w = 17;
+  const int h = 31;
+  const int t = 3;
+
+  const int horizontalW =
+    w - 2 * t;
+
+  const int upperVerticalH =
+    (h / 2) - t - 1;
+
+  const int lowerVerticalH =
+    (h / 2) - t;
+
+  uint8_t segments =
+    digitSegments(digit);
+
+
+  if (
+    segments &
+    SEG_A
+  ) {
+
+    display.drawRBox(
+      x + t,
+      y,
+      horizontalW,
+      t,
+      1
+    );
+  }
+
+
+  if (
+    segments &
+    SEG_G
+  ) {
+
+    display.drawRBox(
+      x + t,
+      y + h / 2 - 1,
+      horizontalW,
+      t,
+      1
+    );
+  }
+
+
+  if (
+    segments &
+    SEG_D
+  ) {
+
+    display.drawRBox(
+      x + t,
+      y + h - t,
+      horizontalW,
+      t,
+      1
+    );
+  }
+
+
+  if (
+    segments &
+    SEG_F
+  ) {
+
+    display.drawRBox(
+      x,
+      y + t,
+      t,
+      upperVerticalH,
+      1
+    );
+  }
+
+
+  if (
+    segments &
+    SEG_B
+  ) {
+
+    display.drawRBox(
+      x + w - t,
+      y + t,
+      t,
+      upperVerticalH,
+      1
+    );
+  }
+
+
+  if (
+    segments &
+    SEG_E
+  ) {
+
+    display.drawRBox(
+      x,
+      y + h / 2 + 2,
+      t,
+      lowerVerticalH,
+      1
+    );
+  }
+
+
+  if (
+    segments &
+    SEG_C
+  ) {
+
+    display.drawRBox(
+      x + w - t,
+      y + h / 2 + 2,
+      t,
+      lowerVerticalH,
+      1
+    );
+  }
+}
+
+
+void drawLargeClock(bool colonOn) {
+
+  const int y = 17;
+
+  const int d1x = 13;
+  const int d2x = 34;
+  const int d3x = 77;
+  const int d4x = 98;
+
+  drawSegmentDigit(
+    d1x,
+    y,
+    shownHour / 10
+  );
+
+  drawSegmentDigit(
+    d2x,
+    y,
+    shownHour % 10
+  );
+
+  drawSegmentDigit(
+    d3x,
+    y,
+    shownMinute / 10
+  );
+
+  drawSegmentDigit(
+    d4x,
+    y,
+    shownMinute % 10
+  );
+
+
+  if (colonOn) {
+
+    display.drawRBox(
+      63,
+      25,
+      4,
+      4,
+      1
+    );
+
+    display.drawRBox(
+      63,
+      37,
+      4,
+      4,
+      1
+    );
+  }
+}
+
+
+// ------------------------------------------------------------
+// CLOCK TRANSITION
+// ------------------------------------------------------------
+
+void drawClockTransition() {
+
+  unsigned long now =
+    millis();
+
+
+  if (
+    clockState ==
+    CLOCK_EYES_CLOSING
+  ) {
+
+    float t =
+      (float)(
+        now -
+        clockStageStart
+      )
+      /
+      (float)
+        CLOCK_EYE_CLOSE_MS;
+
+
+    drawEyesWithClosure(
+      smoothStep(t)
+    );
+
+
+    return;
+  }
+
+
+  if (
+    clockState ==
+    CLOCK_REVEALING
+  ) {
+
+    float t =
+      smoothStep(
+        (float)(
+          now -
+          clockStageStart
+        )
+        /
+        (float)
+          CLOCK_REVEAL_MS
+      );
+
+
+    int eyeBarWidth =
+      (int)(
+        EYE_WIDTH *
+        (
+          1.0f -
+          t
+        )
+      );
+
+
+    if (
+      eyeBarWidth >
+      0
+    ) {
+
+      int leftCenter =
+        LEFT_EYE_X +
+        EYE_WIDTH / 2;
+
+      int rightCenter =
+        RIGHT_EYE_X +
+        EYE_WIDTH / 2;
+
+
+      display.drawRBox(
+        leftCenter -
+          eyeBarWidth / 2,
+        EYE_CENTER_Y - 1,
+        eyeBarWidth,
+        3,
+        1
+      );
+
+
+      display.drawRBox(
+        rightCenter -
+          eyeBarWidth / 2,
+        EYE_CENTER_Y - 1,
+        eyeBarWidth,
+        3,
+        1
+      );
+    }
+
+
+    int halfVisible =
+      max(
+        1,
+        (int)(
+          64.0f *
+          t
+        )
+      );
+
+
+    display.setClipWindow(
+      64 - halfVisible,
+      0,
+      64 + halfVisible,
+      64
+    );
+
+
+    drawLargeClock(
+      true
+    );
+
+
+    display.setMaxClipWindow();
+
+
+    return;
+  }
+
+
+  if (
+    clockState ==
+    CLOCK_HOLDING
+  ) {
+
+    bool colonOn =
+      (
+        (
+          now /
+          500
+        )
+        %
+        2
+      )
+      ==
+      0;
+
+
+    drawLargeClock(
+      colonOn
+    );
+
+
+    return;
+  }
+
+
+  if (
+    clockState ==
+    CLOCK_HIDING
+  ) {
+
+    float t =
+      smoothStep(
+        (float)(
+          now -
+          clockStageStart
+        )
+        /
+        (float)
+          CLOCK_HIDE_MS
+      );
+
+
+    int halfVisible =
+      (int)(
+        64.0f *
+        (
+          1.0f -
+          t
+        )
+      );
+
+
+    if (
+      halfVisible >
+      0
+    ) {
+
+      display.setClipWindow(
+        64 - halfVisible,
+        0,
+        64 + halfVisible,
+        64
+      );
+
+
+      drawLargeClock(
+        true
+      );
+
+
+      display.setMaxClipWindow();
+    }
+
+
+    int eyeBarWidth =
+      (int)(
+        EYE_WIDTH *
+        t
+      );
+
+
+    if (
+      eyeBarWidth >
+      0
+    ) {
+
+      int leftCenter =
+        LEFT_EYE_X +
+        EYE_WIDTH / 2;
+
+      int rightCenter =
+        RIGHT_EYE_X +
+        EYE_WIDTH / 2;
+
+
+      display.drawRBox(
+        leftCenter -
+          eyeBarWidth / 2,
+        EYE_CENTER_Y - 1,
+        eyeBarWidth,
+        3,
+        1
+      );
+
+
+      display.drawRBox(
+        rightCenter -
+          eyeBarWidth / 2,
+        EYE_CENTER_Y - 1,
+        eyeBarWidth,
+        3,
+        1
+      );
+    }
+
+
+    return;
+  }
+
+
+  if (
+    clockState ==
+    CLOCK_EYES_OPENING
+  ) {
+
+    float t =
+      (float)(
+        now -
+        clockStageStart
+      )
+      /
+      (float)
+        CLOCK_EYE_OPEN_MS;
+
+
+    drawEyesWithClosure(
+      1.0f -
+      smoothStep(t)
+    );
+  }
+}
+
+
+void drawEmi() {
+
+  display.clearBuffer();
+
+
+  if (
+    clockState !=
+    CLOCK_OFF
+  ) {
+
+    drawClockTransition();
+  }
+
+  else {
+
+    drawEyesWithClosure(
+      0.0f
+    );
+  }
 
 
   display.sendBuffer();
+}
+
+
+void startShowTime(
+  int hour,
+  int minute
+) {
+
+  shownHour =
+    hour;
+
+  shownMinute =
+    minute;
+
+
+  clockState =
+    CLOCK_EYES_CLOSING;
+
+  clockStageStart =
+    millis();
+
+
+  idleFollowup =
+    FOLLOWUP_NONE;
+
+  attentionState =
+    ATTENTION_NONE;
+
+  gazeMoving =
+    false;
+
+  blinking =
+    false;
+
+  doubleBlinkPending =
+    false;
+
+  petStrokeActive =
+    false;
+
+  petting =
+    false;
+
+
+  gazeX =
+    0;
+
+  gazeY =
+    0;
+
+
+  lastInteractionTime =
+    millis();
+
+
+  Serial.print(
+    "Showing time: "
+  );
+
+  if (
+    hour <
+    10
+  ) {
+
+    Serial.print(
+      '0'
+    );
+  }
+
+  Serial.print(
+    hour
+  );
+
+  Serial.print(
+    ':'
+  );
+
+  if (
+    minute <
+    10
+  ) {
+
+    Serial.print(
+      '0'
+    );
+  }
+
+  Serial.println(
+    minute
+  );
+}
+
+
+void cancelClockForInteraction() {
+
+  if (
+    clockState ==
+    CLOCK_OFF
+  ) {
+
+    return;
+  }
+
+
+  clockState =
+    CLOCK_OFF;
+
+
+  scheduleNextBlink();
+
+  scheduleNextAttentionBid();
+
+  nextIdleAction =
+    millis() +
+    1200;
+}
+
+
+void updateClock() {
+
+  if (
+    clockState ==
+    CLOCK_OFF
+  ) {
+
+    return;
+  }
+
+
+  unsigned long now =
+    millis();
+
+  unsigned long elapsed =
+    now -
+    clockStageStart;
+
+
+  if (
+    clockState ==
+      CLOCK_EYES_CLOSING &&
+    elapsed >=
+      CLOCK_EYE_CLOSE_MS
+  ) {
+
+    clockState =
+      CLOCK_REVEALING;
+
+    clockStageStart =
+      now;
+
+    return;
+  }
+
+
+  if (
+    clockState ==
+      CLOCK_REVEALING &&
+    elapsed >=
+      CLOCK_REVEAL_MS
+  ) {
+
+    clockState =
+      CLOCK_HOLDING;
+
+    clockStageStart =
+      now;
+
+    return;
+  }
+
+
+  if (
+    clockState ==
+      CLOCK_HOLDING &&
+    elapsed >=
+      CLOCK_HOLD_MS
+  ) {
+
+    clockState =
+      CLOCK_HIDING;
+
+    clockStageStart =
+      now;
+
+    return;
+  }
+
+
+  if (
+    clockState ==
+      CLOCK_HIDING &&
+    elapsed >=
+      CLOCK_HIDE_MS
+  ) {
+
+    clockState =
+      CLOCK_EYES_OPENING;
+
+    clockStageStart =
+      now;
+
+    return;
+  }
+
+
+  if (
+    clockState ==
+      CLOCK_EYES_OPENING &&
+    elapsed >=
+      CLOCK_EYE_OPEN_MS
+  ) {
+
+    clockState =
+      CLOCK_OFF;
+
+
+    nextIdleAction =
+      now +
+      1500;
+
+
+    scheduleNextBlink();
+
+    scheduleNextAttentionBid();
+  }
+}
+
+
+// ------------------------------------------------------------
+// SHOW_TIME COMMAND PARSING
+// ------------------------------------------------------------
+
+bool parseTimeText(
+  const String &timeText,
+  int &hour,
+  int &minute
+) {
+
+  if (
+    timeText.length() !=
+    5
+  ) {
+
+    return false;
+  }
+
+
+  if (
+    timeText.charAt(2) !=
+    ':'
+  ) {
+
+    return false;
+  }
+
+
+  if (
+    !isDigit(
+      timeText.charAt(0)
+    ) ||
+    !isDigit(
+      timeText.charAt(1)
+    ) ||
+    !isDigit(
+      timeText.charAt(3)
+    ) ||
+    !isDigit(
+      timeText.charAt(4)
+    )
+  ) {
+
+    return false;
+  }
+
+
+  hour =
+    (
+      timeText.charAt(0) -
+      '0'
+    )
+    *
+    10
+    +
+    (
+      timeText.charAt(1) -
+      '0'
+    );
+
+
+  minute =
+    (
+      timeText.charAt(3) -
+      '0'
+    )
+    *
+    10
+    +
+    (
+      timeText.charAt(4) -
+      '0'
+    );
+
+
+  if (
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+
+    return false;
+  }
+
+
+  return true;
+}
+
+
+void handleCommand(
+  String command
+) {
+
+  command.trim();
+
+
+  if (
+    command.length() ==
+    0
+  ) {
+
+    return;
+  }
+
+
+  const String prefix =
+    "SHOW_TIME ";
+
+
+  if (
+    command.startsWith(
+      prefix
+    )
+  ) {
+
+    String timeText =
+      command.substring(
+        prefix.length()
+      );
+
+
+    timeText.trim();
+
+
+    int hour = 0;
+    int minute = 0;
+
+
+    if (
+      parseTimeText(
+        timeText,
+        hour,
+        minute
+      )
+    ) {
+
+      startShowTime(
+        hour,
+        minute
+      );
+    }
+
+    else {
+
+      Serial.println(
+        "ERR expected SHOW_TIME HH:MM"
+      );
+    }
+
+
+    return;
+  }
+
+
+  if (
+    command ==
+    "FACE"
+  ) {
+
+    cancelClockForInteraction();
+
+    Serial.println(
+      "OK face"
+    );
+
+    return;
+  }
+
+
+  Serial.println(
+    "ERR unknown command"
+  );
+}
+
+
+void updateSerialCommands() {
+
+  while (
+    Serial.available() >
+    0
+  ) {
+
+    char c =
+      (char)
+        Serial.read();
+
+
+    if (
+      c ==
+      '\r'
+    ) {
+
+      continue;
+    }
+
+
+    if (
+      c ==
+      '\n'
+    ) {
+
+      handleCommand(
+        serialCommand
+      );
+
+
+      serialCommand =
+        "";
+
+
+      continue;
+    }
+
+
+    if (
+      serialCommand.length() <
+      64
+    ) {
+
+      serialCommand +=
+        c;
+    }
+  }
 }
 
 
@@ -586,7 +1594,12 @@ void startGaze(
 
 void updateGaze() {
 
-  if (!gazeMoving) {
+  if (
+    !gazeMoving ||
+    clockState !=
+      CLOCK_OFF
+  ) {
+
     return;
   }
 
@@ -651,7 +1664,12 @@ void updateGaze() {
 
 void startBlink() {
 
-  if (blinking) {
+  if (
+    blinking ||
+    clockState !=
+      CLOCK_OFF
+  ) {
+
     return;
   }
 
@@ -691,7 +1709,12 @@ void startBlink() {
 
 void startAttentionBlink() {
 
-  if (blinking) {
+  if (
+    blinking ||
+    clockState !=
+      CLOCK_OFF
+  ) {
+
     return;
   }
 
@@ -717,7 +1740,12 @@ void startAttentionBlink() {
 
 void startRelaxedBlink() {
 
-  if (blinking) {
+  if (
+    blinking ||
+    clockState !=
+      CLOCK_OFF
+  ) {
+
     return;
   }
 
@@ -787,7 +1815,12 @@ void startAttentionBid() {
 
 void updateAttentionBid() {
 
-  if (petting) {
+  if (
+    petting ||
+    clockState !=
+      CLOCK_OFF
+  ) {
+
     return;
   }
 
@@ -1031,9 +2064,11 @@ IdleAction pickIdleAction() {
   ] =
     max(
       1,
+
       weights[
         lastIdleAction
-      ] /
+      ]
+      /
       5
     );
 
@@ -1043,9 +2078,11 @@ IdleAction pickIdleAction() {
   ] =
     max(
       1,
+
       weights[
         previousIdleAction
-      ] /
+      ]
+      /
       2
     );
 
@@ -1521,6 +2558,9 @@ void updateIdleFollowup() {
 
 void beginPetting() {
 
+  cancelClockForInteraction();
+
+
   petting =
     true;
 
@@ -1845,6 +2885,9 @@ void updateIdleBehaviour() {
   if (
     petting ||
 
+    clockState !=
+      CLOCK_OFF ||
+
     attentionState !=
       ATTENTION_NONE
   ) {
@@ -1957,6 +3000,11 @@ void updatePettingBehaviour() {
 
 void setup() {
 
+  Serial.begin(
+    115200
+  );
+
+
   Wire.begin(
     OLED_SDA,
     OLED_SCL
@@ -1965,8 +3013,10 @@ void setup() {
 
   display.begin();
 
-  // Softer than the OLED's default full brightness.
-  display.setContrast(100);
+
+  display.setContrast(
+    100
+  );
 
 
   pinMode(
@@ -1980,8 +3030,11 @@ void setup() {
   );
 
 
-  gazeX = 0;
-  gazeY = 0;
+  gazeX =
+    0;
+
+  gazeY =
+    0;
 
 
   lastDriveUpdate =
@@ -2003,6 +3056,23 @@ void setup() {
 
 
   drawEmi();
+
+
+  delay(
+    250
+  );
+
+
+  Serial.println();
+  Serial.println(
+    "EMI C3 ready."
+  );
+  Serial.println(
+    "Command: SHOW_TIME HH:MM"
+  );
+  Serial.println(
+    "Example: SHOW_TIME 14:37"
+  );
 }
 
 
@@ -2012,9 +3082,13 @@ void setup() {
 
 void loop() {
 
+  updateSerialCommands();
+
   updatePersonalityDrives();
 
   updateTouch();
+
+  updateClock();
 
   updateGaze();
 
@@ -2027,5 +3101,7 @@ void loop() {
   drawEmi();
 
 
-  delay(20);
+  delay(
+    20
+  );
 }
