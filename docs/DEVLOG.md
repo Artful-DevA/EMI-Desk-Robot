@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **01:51:45 tracked so far** |
-| **Current exact session** | **ACTIVE - 01:51:45 at latest checkpoint** |
+| **Exact tracked development time** | **03:14:17 tracked so far** |
+| **Current exact session** | **ACTIVE - 03:14:17 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
 | **Completed exact sessions** | 0 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -28,7 +28,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Session | Exact duration | Notes |
 | --- | --- | --- |
-| 1 | ACTIVE - 01:51:45 at latest checkpoint | Exact tracking enabled; session is still running |
+| 1 | ACTIVE - 03:14:17 at latest checkpoint | Exact tracking enabled; session is still running |
 
 ## Backstory - before the tracked C3 migration session
 
@@ -334,6 +334,14 @@ While switching to the temporary Wi-Fi scan sketch, the ESP32-C3 suddenly stoppe
 This is an upload/bootloader problem, not a compile problem: the sketch compiled successfully, but the computer could not get the C3 into the serial bootloader handshake.
 
 The recovery path is the familiar C3 manual boot sequence: hold BOOT, tap RESET, release RESET, then release BOOT and upload again.
+
+---
+
+## 2026-10-07 - Windows still sees the C3, but the bootloader handshake is failing
+
+Device Manager shows the board as `USB Serial Device (COM10)` with **"This device is working properly."** That is useful: the USB cable/device path is alive and Windows can enumerate the C3.
+
+The failure is now narrower: `esptool` can open the COM port, but the ESP32-C3 is not answering the ROM download handshake. The next recovery attempt is to force download mode at power-up by holding BOOT while plugging USB in, then re-check which COM port Windows assigns before uploading.
 
 ---
 
