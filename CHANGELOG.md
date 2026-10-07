@@ -2,6 +2,21 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Start live voice-control backend
+
+### Added
+
+- upgraded EMI Hub to v0.4 with authenticated `POST /device/audio` WAV ingestion
+- audio uploads are held in RAM and forwarded to local whisper.cpp without EMI Hub writing temporary audio files
+- added a localhost-only whisper.cpp service on port 17841 using the existing `tiny.en` model
+- added a user-service installer for the Whisper backend
+- voice commands must explicitly address `Emi` before the deterministic intent parser may trigger an action
+- ordinary voice transcripts are discarded after parsing and are not written to normal logs
+
+### Next
+
+- add ESP32-C3 microphone VAD/capture and authenticated WAV upload to the new voice endpoint
+
 ## 2026-10-07 - Synchronize project documentation with the working prototype
 
 ### Documentation
