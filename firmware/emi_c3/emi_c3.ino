@@ -12,7 +12,7 @@
 //
 // Verified hardware map:
 //   OLED SDA  -> GPIO 8
-//   OLED SCL  -> GPIO 9
+//   OLED SCL  -> GPIO 7
 //   TOUCH OUT -> GPIO 10
 //   MIC SCK   -> GPIO 4
 //   MIC WS    -> GPIO 5
@@ -40,7 +40,8 @@
 // ------------------------------------------------------------
 
 const int OLED_SDA = 8;
-const int OLED_SCL = 9;
+const int OLED_SCL = 7;
+// GPIO 9 is intentionally left free for BOOT/download mode.
 
 const int TOUCH_PIN = 10;
 
