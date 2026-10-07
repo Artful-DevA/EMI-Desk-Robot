@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=%h/whisper.cpp/build/bin/whisper-server --host 127.0.0.1 --port 17841 -m %h/whisper.cpp/models/ggml-tiny.en.bin -l en -nt -nc
+ExecStart=%h/whisper.cpp/build/bin/whisper-server -m %h/whisper.cpp/models/ggml-tiny.en.bin --host 127.0.0.1 --port 17841
 Restart=on-failure
 RestartSec=2
 NoNewPrivileges=true
