@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **03:58:01 tracked so far** |
-| **Current exact session** | **ACTIVE - 02:07:13 at latest checkpoint** |
+| **Exact tracked development time** | **04:00:06 tracked so far** |
+| **Current exact session** | **ACTIVE - 02:09:18 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 02:07:13** | Work resumed after the break |
-| **Total active tracked work** | **03:58:01** | Break excluded |
+| 2 | **ACTIVE - 02:09:18** | Work resumed after the break |
+| **Total active tracked work** | **04:00:06** | Break excluded |
 
 ---
 
@@ -473,6 +473,21 @@ Before flashing, I added low-rate Serial diagnostics for the live VAD. Once per 
 I also accounted for a likely speech-recognition detail: Whisper may spell the robot's spoken name as "Emmy" even when I mean "Emi". The hub now accepts exactly `emi` or `emmy` as wake addresses. It is still deterministic and does not use fuzzy matching.
 
 **Result:** the first spoken-command test should now tell me exactly whether a failure is VAD, upload, transcription, wake-word parsing, or the existing command path.
+
+---
+
+# 2026-10-07 - The Pi voice backend is fully green
+
+I confirmed both services are now healthy at the same time:
+
+- `emi-whisper.service` is active with tiny.en loaded
+- `emi-hub.service` is active as v0.4
+- `/health` returns HTTP 200 and reports the local Whisper endpoint
+- the Whisper HTTP endpoint successfully transcribes the bundled JFK sample
+
+That means I can stop touching the Raspberry Pi backend for this milestone and move to the physical microphone upload test on EMI himself.
+
+**Result:** Raspberry Pi voice backend validated end-to-end; next action is flashing the new C3 voice firmware.
 
 ---
 
