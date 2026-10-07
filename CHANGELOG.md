@@ -2,6 +2,25 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-08 - Make wake-word position independent
+
+### Changed
+
+- EMI Hub upgraded to v0.11
+- replaced the single whole-phrase Vosk grammar with two independent constrained recognition passes
+- one pass asks only whether the clip contains the explicit EMI wake name (acoustically `Emmy`)
+- the second pass asks only whether the clip contains the `time` intent
+- wake word and command can now appear in either order without relying on one exact phrase transcription
+- natural contractions such as `what's the time` no longer need to match one exact grammar sentence because the intent gate only needs to hear `time`
+- retained a short decoder silence tail to improve phrase-final `Emi`
+- both gates still have independent confidence thresholds, so a time request without the explicit EMI wake name does not execute
+
+### Why
+
+- wake-first phrases were working while the same commands with `Emi` at the end were unreliable
+- whole-phrase constrained recognition was still coupling wake-word placement to sentence shape
+- independent wake and intent gates preserve the explicit wake requirement while making word order irrelevant
+
 ## 2026-10-08 - Improve long and wake-at-end time phrases
 
 ### Changed

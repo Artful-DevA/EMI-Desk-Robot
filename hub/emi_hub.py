@@ -32,34 +32,42 @@ VOSK_MODEL_DIR = os.path.expanduser(
 VOSK_MIN_WAKE_CONFIDENCE = float(
     os.environ.get(
         "EMI_VOSK_MIN_WAKE_CONFIDENCE",
-        "0.38",
+        "0.35",
     )
 )
 
 VOSK_MIN_TIME_CONFIDENCE = float(
     os.environ.get(
         "EMI_VOSK_MIN_TIME_CONFIDENCE",
-        "0.50",
+        "0.45",
     )
 )
 
-# EMI is pronounced like the ordinary English name "Emmy".
-# Use that exact acoustic spelling in the constrained grammar.
+# Two independent constrained recognizers are used for the current
+# deterministic time-command milestone:
+#
+# 1. Did the clip contain the explicit spoken wake name "Emi"?
+# 2. Did the clip contain the time intent?
+#
+# This deliberately makes word order irrelevant. "Emi time",
+# "Time Emi", and longer natural forms all go through the same gates.
+#
+# Vosk's ordinary English acoustic spelling for EMI is "Emmy".
+VOSK_WAKE_GRAMMAR = [
+    "emmy",
+    "[unk]",
+]
+
 VOSK_TIME_GRAMMAR = [
-    "emmy time",
-    "time emmy",
-    "emmy what time is it",
-    "what time is it emmy",
-    "emmy what is the time",
-    "what is the time emmy",
-    "emmy tell me the time",
-    "tell me the time emmy",
-    "emmy give me the time",
-    "give me the time emmy",
-    "emmy do you know the time",
-    "do you know the time emmy",
-    "emmy do you know what time it is",
-    "do you know what time it is emmy",
+    "time",
+    "what time is it",
+    "what is the time",
+    "tell me time",
+    "tell me the time",
+    "give me time",
+    "give me the time",
+    "do you know the time",
+    "do you know what time it is",
     "[unk]",
 ]
 
@@ -141,20 +149,16 @@ def wav_pcm16_frames(
     return frames, sample_rate
 
 
-def recognize_time_command(
-    wav_bytes: bytes,
+def run_vosk_grammar(
+    pcm_bytes: bytes,
+    sample_rate: int,
+    grammar,
 ):
-    pcm_bytes, sample_rate = (
-        wav_pcm16_frames(
-            wav_bytes
-        )
-    )
-
     recognizer = KaldiRecognizer(
         VOSK_MODEL,
         sample_rate,
         json.dumps(
-            VOSK_TIME_GRAMMAR
+            grammar
         ),
     )
 
@@ -174,67 +178,96 @@ def recognize_time_command(
             ]
         )
 
-    # Give phrase-final "Emi" a little clean tail to finalize.
+    # Clean decoder tail. This especially helps a phrase-final "Emi".
     recognizer.AcceptWaveform(
         b"\x00\x00"
         * int(
             sample_rate
-            * 0.30
+            * 0.35
         )
     )
 
-    payload = json.loads(
+    return json.loads(
         recognizer.FinalResult()
     )
 
-    text = payload.get(
-        "text",
-        "",
-    ).strip()
 
-    words = payload.get(
+def max_word_confidence(
+    payload,
+    target: str,
+) -> float:
+    best = 0.0
+
+    for word in payload.get(
         "result",
         [],
-    )
-
-    wake_confidence = 0.0
-    time_confidence = 0.0
-
-    for word in words:
+    ):
         if not isinstance(
             word,
             dict,
         ):
             continue
 
-        token = str(
-            word.get(
-                "word",
-                "",
-            )
-        ).lower()
+        if (
+            str(
+                word.get(
+                    "word",
+                    "",
+                )
+            ).lower()
+            != target
+        ):
+            continue
 
-        confidence = float(
-            word.get(
-                "conf",
-                0.0,
-            )
+        best = max(
+            best,
+            float(
+                word.get(
+                    "conf",
+                    0.0,
+                )
+            ),
         )
 
-        if token == "emmy":
-            wake_confidence = max(
-                wake_confidence,
-                confidence,
-            )
+    return best
 
-        if token == "time":
-            time_confidence = max(
-                time_confidence,
-                confidence,
-            )
+
+def recognize_time_command(
+    wav_bytes: bytes,
+):
+    pcm_bytes, sample_rate = (
+        wav_pcm16_frames(
+            wav_bytes
+        )
+    )
+
+    wake_payload = run_vosk_grammar(
+        pcm_bytes,
+        sample_rate,
+        VOSK_WAKE_GRAMMAR,
+    )
+
+    time_payload = run_vosk_grammar(
+        pcm_bytes,
+        sample_rate,
+        VOSK_TIME_GRAMMAR,
+    )
+
+    wake_confidence = (
+        max_word_confidence(
+            wake_payload,
+            "emmy",
+        )
+    )
+
+    time_confidence = (
+        max_word_confidence(
+            time_payload,
+            "time",
+        )
+    )
 
     return (
-        text,
         wake_confidence,
         time_confidence,
     )
@@ -404,7 +437,7 @@ def transcribe_wav_in_memory(wav_bytes: bytes) -> str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "emi-hub/0.10"
+    server_version = "emi-hub/0.11"
 
     def _send_bytes(self, status: int, body: bytes, content_type: str):
         self.send_response(status)
@@ -476,12 +509,12 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "service": "emi-hub",
-                    "version": "0.10",
+                    "version": "0.11",
                     "whisper": (
                         f"{WHISPER_HOST}:"
                         f"{WHISPER_PORT}"
                     ),
-                    "recognizer": "vosk-command-grammar",
+                    "recognizer": "vosk-dual-gate",
                 },
             )
             return
@@ -602,7 +635,6 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             (
-                recognized_text,
                 wake_confidence,
                 time_confidence,
             ) = recognize_time_command(
@@ -644,23 +676,12 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             wav_bytes = b""
 
-        normalized = normalize_text(
-            recognized_text
-        )
-
-        tokens = normalized.split()
-
         if (
-            len(tokens) < 2
-            or "emmy" not in tokens
-            or "time" not in tokens
-            or wake_confidence
+            wake_confidence
             < VOSK_MIN_WAKE_CONFIDENCE
-            or time_confidence
-            < VOSK_MIN_TIME_CONFIDENCE
         ):
             print(
-                "voice=no_command",
+                "voice=no_wake_word",
                 flush=True,
             )
 
@@ -675,13 +696,36 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
-        result = parse_intent(
-            normalized
-        )
+        if (
+            time_confidence
+            < VOSK_MIN_TIME_CONFIDENCE
+        ):
+            print(
+                "voice=no_time_intent",
+                flush=True,
+            )
 
-        result["recognize_ms"] = (
-            recognize_ms
-        )
+            self._send_json(
+                200,
+                {
+                    "ok": False,
+                    "intent": None,
+                    "error": "NO_MATCH",
+                    "recognize_ms": recognize_ms,
+                },
+            )
+            return
+
+        now = datetime.now().astimezone()
+        hhmm = now.strftime("%H:%M")
+
+        result = {
+            "ok": True,
+            "intent": "TIME",
+            "time": hhmm,
+            "command": f"SHOW_TIME {hhmm}",
+            "recognize_ms": recognize_ms,
+        }
 
         if result["ok"]:
             queue_command(
@@ -812,14 +856,14 @@ def main():
     )
 
     print(
-        f"emi-hub 0.10 listening on "
+        f"emi-hub 0.11 listening on "
         f"{HOST}:{PORT}",
         flush=True,
     )
 
     print(
         "voice path uses in-memory WAV -> "
-        "Vosk constrained command grammar; "
+        "Vosk independent wake + time gates; "
         f"Whisper remains available at "
         f"{WHISPER_HOST}:{WHISPER_PORT} "
         "for future free-form commands",

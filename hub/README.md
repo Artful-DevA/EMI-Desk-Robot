@@ -26,7 +26,7 @@ EMI Hub
         |
         | in-memory PCM
         v
-Vosk constrained command recognizer
+Vosk independent wake + intent recognizer
         |
         | only if EMI wake name is detected
         v
@@ -207,3 +207,13 @@ EMI Hub uses a small offline Vosk English model with a constrained grammar for t
 A result is accepted only when the constrained recognition contains both the wake token and the time command with sufficient word confidence. Noise/non-command candidates are rejected.
 
 Whisper remains installed for later free-form timer/reminder content. Actual microphone WAV data is still processed in memory and is not written to disk by the EMI voice path.
+
+
+## Independent wake and intent gates
+
+For the current time-command milestone, EMI Hub runs two constrained offline Vosk passes over the same in-memory WAV:
+
+1. a wake gate that looks only for the spoken robot name (the acoustic spelling `Emmy`)
+2. an intent gate that looks independently for `time`
+
+The command executes only when both confidence gates pass. This makes `Emi time`, `Time Emi`, longer time questions, and wake-at-end phrases use the same authorization rule instead of relying on one exact sentence grammar.

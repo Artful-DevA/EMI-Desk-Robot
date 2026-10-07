@@ -659,6 +659,20 @@ I changed the gate to score the wake token and the time token independently. I a
 
 ---
 
+# 2026-10-08 - I separated the wake word from the command words
+
+The Vosk change was clearly better: "Emi time", "Emi what time is it", and "Emi tell me the time" were working. But the same requests became unreliable when I put EMI at the end, and the contraction in "Emi, what's the time?" was still awkward.
+
+That showed the remaining coupling in the recognizer. I was still asking one constrained grammar to recognize the complete sentence, so word order and sentence shape mattered more than they should.
+
+I split the recognition into two independent local passes over the same RAM-only clip. One pass only checks for the explicit spoken wake name EMI (using Vosk's acoustic spelling "Emmy"). The other independently checks for the word "time".
+
+The command runs only when both gates pass their own confidence thresholds. That means "Emi time", "Time Emi", "What time is it Emi", and "Emi what's the time" no longer need to map to the same full phrase.
+
+**Result:** wake position is now an independent requirement rather than part of one fragile sentence template.
+
+---
+
 # Current state
 
 Right now I have a real networked EMI prototype with:
