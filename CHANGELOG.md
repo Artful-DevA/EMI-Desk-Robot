@@ -2,6 +2,31 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Personality drives + less repetitive idle
+
+### Changed
+
+- added internal curiosity and contentment values that evolve over time
+- idle behavior selection is now influenced by EMI's current internal state
+- EMI remembers the previous two idle actions and strongly avoids repeating them
+- added distinct still, micro-glance, focus, curious-peek, wide-glance, settle, and soft-attention behaviors
+- curiosity rises while EMI is left alone and is reduced by exploration
+- contentment increases through petting and fades slowly afterward
+- high contentment makes calm/still idle behavior more likely after petting
+- first pet attention movement is now about 85 ms after touch recognition
+- every recognized stroke produces a contented partial eye-close
+- repeated strokes gradually deepen the contented eye-close up to a safe limit
+- deeper relaxed blink now requires several strokes
+- normal blink timing widened to roughly 9-18 seconds
+- double blink probability reduced again
+
+### Removed / refined
+
+- reduced purely random idle selection
+- avoided immediate reuse of recent idle animations
+- no vertical petting bounce
+- no per-stroke random gaze jump
+
 ## 2026-10-07 - Richer idle + contented pet strokes
 
 ### Changed
