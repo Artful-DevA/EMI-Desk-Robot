@@ -1,4 +1,22 @@
-# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - More natural time phrasing in EMI Hub
+# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Authenticated Pi -> C3 command bridge
+
+### Added
+
+- EMI Hub v0.3 queues deterministic display commands for the ESP32-C3
+- added authenticated `/device/command` polling endpoint for the C3
+- speech/intent requests remain restricted to localhost even though the hub now listens on the LAN
+- installer creates a random private shared token outside the repository
+- ESP32-C3 normal firmware now joins Wi-Fi and polls the Pi hub in a background task
+- network commands are transferred into the normal face loop through a FreeRTOS queue so failed/slow networking does not intentionally block eye animation
+- added `secrets.example.h`; real Wi-Fi credentials and token stay in ignored `secrets.h`
+
+### Security
+
+- current transport is restricted to a trusted LAN prototype and allow-listed display commands
+- credentials and authentication token are not stored in Git
+- the current plain-HTTP LAN transport must not be exposed directly to the internet or reused for privileged desktop actions
+
+## 2026-10-07 - More natural time phrasing in EMI Hub
 
 ### Changed
 
