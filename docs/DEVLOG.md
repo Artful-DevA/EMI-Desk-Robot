@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **04:40:07 tracked so far** |
-| **Current exact session** | **ACTIVE - 02:49:19 at latest checkpoint** |
+| **Exact tracked development time** | **05:43:00 tracked so far** |
+| **Current exact session** | **ACTIVE - 03:52:12 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 02:49:19** | Work resumed after the break |
-| **Total active tracked work** | **04:40:07** | Break excluded |
+| 2 | **ACTIVE - 03:52:12** | Work resumed after the break |
+| **Total active tracked work** | **05:43:00** | Break excluded |
 
 ---
 
@@ -532,6 +532,22 @@ The new detector looks at a rolling short-term average over about 128 ms and req
 I also added safe response diagnostics on the ESP32. After a voice upload it can now tell me whether the Pi matched the TIME intent, heard speech without the Emi wake word, heard no speech, or heard an unknown command. It still does not print or store the actual transcript.
 
 **Result:** this version should stop reacting to isolated noise spikes and, if the command still fails, the Serial output will identify the exact stage instead of just saying HTTP 200.
+
+---
+
+# 2026-10-07 - I split voice control into a clean end-to-end diagnostic
+
+The integrated voice build was still falsely detecting speech while the room was quiet. Instead of continuing to change one threshold inside the full personality/network firmware, I made a dedicated end-to-end voice test.
+
+This test keeps the real microphone, the proven 8.5 dBm Wi-Fi workaround, the authenticated Pi audio endpoint, local Whisper, wake-word parsing, and the time intent, but temporarily removes normal personality behavior and background command polling.
+
+The biggest change is the order of operations: I now connect Wi-Fi first, let the radio settle, and only then calibrate the microphone. That matters because radio activity and power noise can contaminate the baseline when calibration and Wi-Fi startup happen at the same time.
+
+The detector also requires about 240 ms of sustained speech-like energy before it starts recording. Short electrical or room-noise spikes should no longer count as speech.
+
+If the Pi matches the TIME intent, the test firmware displays the returned HH:MM directly on the OLED. If it fails, Serial tells me whether the failure was no speech, no Emi wake word, no command match, or HTTP/backend failure without logging the actual transcript.
+
+**Result:** I now have a much cleaner test that can identify the first broken stage without the full EMI runtime getting in the way.
 
 ---
 
