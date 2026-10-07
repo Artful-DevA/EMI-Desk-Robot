@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h/EMI-Desk-Robot/hub
-ExecStart=/usr/bin/python3 %h/EMI-Desk-Robot/hub/emi_hub.py
+ExecStart=%h/.local/share/emi-hub-venv/bin/python %h/EMI-Desk-Robot/hub/emi_hub.py
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=%h/.config/emi-hub/emi-hub.env
 Restart=on-failure
