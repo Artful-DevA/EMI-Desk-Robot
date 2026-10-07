@@ -26,7 +26,7 @@ EMI Hub
         |
         | in-memory PCM
         v
-sherpa-onnx EMI keyword spotter
+Vosk constrained command recognizer
         |
         | only if EMI wake name is detected
         v
@@ -151,7 +151,7 @@ Check the hub:
 curl -s http://127.0.0.1:17840/health
 ```
 
-The response should report version `0.8` and Whisper on `127.0.0.1:17841`.
+The response should report version `0.9` and Whisper on `127.0.0.1:17841`.
 
 ## Test Whisper without EMI
 
@@ -200,14 +200,10 @@ For performance diagnostics, the hub logs only Whisper processing duration (for 
 
 ## Dedicated EMI keyword spotter
 
-The current wake gate no longer depends on Whisper spelling the robot name correctly.
+The current time-command path no longer depends on an isolated short wake-word detector or on Whisper spelling the robot name correctly.
 
-EMI Hub first decodes the uploaded in-memory WAV with a small local sherpa-onnx keyword-spotting model configured specifically for the spoken EMI wake name. If the wake word is absent, the clip is rejected and Whisper is not called.
+EMI Hub uses a small offline Vosk English model with a constrained grammar for the current milestone. The grammar gives the wake name useful command context and accepts forms such as `Emmy time`, `Time Emmy`, `Emmy what time is it`, and `What time is it Emmy`. The acoustic spelling `Emmy` maps deterministically to the robot name EMI.
 
-If the wake word is present, Whisper only has to recover the command words. This allows short natural forms such as:
+A result is accepted only when the constrained recognition contains both the wake token and the time command with sufficient word confidence. Noise/non-command candidates are rejected.
 
-- `Emi time`
-- `Time Emi`
-- `What's the time, Emi?`
-
-The keyword-spotting model is installed into `~/.local/share/emi-kws` and the Python runtime into `~/.local/share/emi-hub-venv`. Actual microphone WAV data is still processed in memory and is not written to disk by the EMI voice path.
+Whisper remains installed for later free-form timer/reminder content. Actual microphone WAV data is still processed in memory and is not written to disk by the EMI voice path.
