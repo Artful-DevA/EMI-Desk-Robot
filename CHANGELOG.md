@@ -2,6 +2,16 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Planned night display dimming
+
+### Documentation
+
+- added automatic time-of-day OLED dimming to the feature inventory
+- planned gradual late-night dimming rather than abrupt brightness changes
+- documented a very dim overnight window around 02:00-07:00
+- night behavior should also suppress unnecessary attention bids
+- brightness should return gradually in the morning
+
 ## 2026-10-07 - Privacy, memory confirmation, and meeting audio policy
 
 ### Documentation
