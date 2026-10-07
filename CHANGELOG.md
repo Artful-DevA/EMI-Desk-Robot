@@ -2,6 +2,18 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Gentler petting + mini timer UI test
+
+### Changed
+
+- reduced per-stroke eye closure so petting looks contented rather than squinty
+- pet-stroke closure now starts around 30% and caps around 42%
+- shortened the pet-stroke animation slightly
+- added a tiny 10-minute countdown in the top-right corner as a display-space test
+- the miniature timer automatically starts at boot
+- the timer hides while EMI is actively being petted so the face keeps visual priority
+- the timer is right-aligned using the tiny 4x6 U8g2 font
+
 ## 2026-10-07 - Personality drives + less repetitive idle
 
 ### Changed
@@ -41,7 +53,7 @@ This changelog starts from the point where the GitHub repository became writable
 - petting attention now reaches the upper gaze position in about 95 ms
 - every recognized pat now produces a smooth partial contented eye-close
 - fast touch chatter under 260 ms is ignored as a separate stroke
-- after several strokes, EMI can give one deeper relaxed blink
+- after several pats EMI can give one deeper relaxed blink
 - petting drift is slower and only horizontal
 
 ### Removed / refined
