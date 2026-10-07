@@ -2,6 +2,25 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Eye-scale clock morph
+
+### Changed
+
+- kept the timer at its current readable size
+- replaced the font-based large clock with a custom 7-segment clock
+- clock now occupies roughly the same visual footprint as EMI's eyes
+- eyes close into thin bars before the clock appears
+- the bars shrink while the clock reveals from the center
+- reverse transition turns the clock back into eye-lines and then reopens EMI's eyes
+- random valid HH:MM demo time still appears about 12 seconds after boot
+
+### Documentation
+
+- notes are now explicitly session-only transcription
+- raw audio is never written to disk
+- note-mode Markdown can be written directly to an Obsidian vault
+- project-awareness boundaries are explicitly documented
+
 ## 2026-10-07 - Larger timer + random clock transition
 
 ### Changed
