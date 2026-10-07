@@ -2,6 +2,35 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-08 - Add working voice timers
+
+### Added
+
+- EMI Hub v0.13 now owns one active countdown timer in RAM
+- spoken timer creation such as `Emi set a timer for 30 seconds`
+- deterministic duration parsing for seconds, minutes, hours, digits, and common spoken number words
+- spoken remaining-time queries such as `Emi how much time is left`
+- spoken timer cancellation such as `Emi cancel timer`
+- authenticated `/device/timer` state endpoint so the C3 can recover an active timer after a C3 reset
+- timer expiry queues a deterministic `TIMER_DONE` device command for future normal-firmware integration
+- C3 voice diagnostic v4 mirrors the Pi countdown locally, displays timer set/remaining values, and shows a temporary TIMER DONE state on expiry
+
+### Voice architecture
+
+- explicit EMI wake recognition remains a separate Vosk gate
+- a third lightweight Vosk gate identifies timer-like speech
+- only after the EMI wake gate passes does Whisper transcribe timer wording/duration
+- Whisper text never directly executes an action; deterministic parsing decides SET_TIMER, TIMER_LEFT, or TIMER_CANCEL
+- raw WAV and ordinary command transcripts remain RAM-only/transient
+
+### Deferred
+
+- timer-to-eyes transition animation
+- small corner countdown beside EMI's normal eyes
+- animated timer inspection/return transition
+- final timer-expired personality animation
+- TTS/speaker output
+
 ## 2026-10-08 - Reduce voice-command reaction latency
 
 ### Changed

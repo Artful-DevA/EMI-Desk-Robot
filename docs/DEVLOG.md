@@ -685,6 +685,22 @@ I kept the exact same wake and intent thresholds. This is a latency change, not 
 
 ---
 
+# 2026-10-08 - I added the first real timer
+
+I deliberately did not start with the final timer animation. I first made the timer itself real.
+
+The Raspberry Pi hub now owns one active countdown timer in memory. I can say "Emi set a timer for 30 seconds", ask how much time is left, and cancel it. The explicit EMI wake gate still has to pass first.
+
+For timer phrases I added a separate lightweight Vosk intent gate. Once EMI is confirmed and the audio looks timer-related, Whisper recovers the natural wording and duration, but it still cannot directly trigger an action. A deterministic parser extracts seconds/minutes/hours and chooses SET_TIMER, TIMER_LEFT, or TIMER_CANCEL.
+
+The current C3 diagnostic firmware mirrors the countdown locally after the Pi confirms it. That lets it show TIMER DONE at the correct moment without constantly polling HTTP and disrupting microphone capture. It also asks the Pi for timer state once after connecting, so a C3 reset does not automatically destroy a timer that is still alive on the Pi.
+
+The final visual design is intentionally deferred: later the timer will animate into the main clock position, shrink into a corner beside EMI's normal eyes, expand when I ask how much time is left, and get a proper expiry reaction.
+
+**Result:** timer logic works first; personality animation comes after the behavior is proven.
+
+---
+
 # Current state
 
 Right now I have a real networked EMI prototype with:

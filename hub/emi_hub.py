@@ -8,6 +8,7 @@ import json
 import os
 import queue
 import re
+import threading
 import time
 import uuid
 import wave
@@ -44,6 +45,13 @@ VOSK_MIN_TIME_CONFIDENCE = float(
     )
 )
 
+VOSK_MIN_TIMER_CONFIDENCE = float(
+    os.environ.get(
+        "EMI_VOSK_MIN_TIMER_CONFIDENCE",
+        "0.45",
+    )
+)
+
 # Two independent constrained recognizers are used for the current
 # deterministic time-command milestone:
 #
@@ -69,6 +77,19 @@ VOSK_TIME_GRAMMAR = [
     "give me the time",
     "do you know the time",
     "do you know what time it is",
+    "[unk]",
+]
+
+VOSK_TIMER_GRAMMAR = [
+    "timer",
+    "set a timer",
+    "set timer",
+    "cancel timer",
+    "stop timer",
+    "time left",
+    "how much time is left",
+    "how long is left",
+    "remaining time",
     "[unk]",
 ]
 
@@ -105,6 +126,13 @@ TIME_FORMS = {
 }
 
 COMMANDS = queue.Queue(maxsize=16)
+
+TIMER_LOCK = threading.Lock()
+ACTIVE_TIMER_DEADLINE = None
+ACTIVE_TIMER_SECONDS = 0
+ACTIVE_TIMER_THREAD = None
+
+MAX_TIMER_SECONDS = 24 * 60 * 60
 
 
 SetLogLevel(-1)
@@ -233,7 +261,25 @@ def max_word_confidence(
     return best
 
 
-def recognize_time_command(
+def max_any_word_confidence(
+    payload,
+    targets,
+) -> float:
+    best = 0.0
+
+    for target in targets:
+        best = max(
+            best,
+            max_word_confidence(
+                payload,
+                target,
+            ),
+        )
+
+    return best
+
+
+def recognize_voice_gates(
     wav_bytes: bytes,
 ):
     pcm_bytes, sample_rate = (
@@ -242,11 +288,11 @@ def recognize_time_command(
         )
     )
 
-    # The wake and intent recognizers are independent. Running them
-    # concurrently cuts the extra latency introduced by the dual-gate
-    # design while preserving the same acceptance rules.
+    # Wake, clock-time, and timer-intent gates are independent.
+    # Run all three concurrently so timer support does not make the
+    # already-working TIME command noticeably slower.
     with ThreadPoolExecutor(
-        max_workers=2
+        max_workers=3
     ) as executor:
         wake_future = executor.submit(
             run_vosk_grammar,
@@ -262,12 +308,23 @@ def recognize_time_command(
             VOSK_TIME_GRAMMAR,
         )
 
+        timer_future = executor.submit(
+            run_vosk_grammar,
+            pcm_bytes,
+            sample_rate,
+            VOSK_TIMER_GRAMMAR,
+        )
+
         wake_payload = (
             wake_future.result()
         )
 
         time_payload = (
             time_future.result()
+        )
+
+        timer_payload = (
+            timer_future.result()
         )
 
     wake_confidence = (
@@ -284,9 +341,23 @@ def recognize_time_command(
         )
     )
 
+    timer_confidence = (
+        max_any_word_confidence(
+            timer_payload,
+            {
+                "timer",
+                "left",
+                "remaining",
+                "cancel",
+                "stop",
+            },
+        )
+    )
+
     return (
         wake_confidence,
         time_confidence,
+        timer_confidence,
     )
 
 
@@ -372,6 +443,377 @@ def queue_command(command: str):
     COMMANDS.put_nowait(command)
 
 
+NUMBER_WORDS = {
+    "zero": 0,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
+    "twenty": 20,
+    "thirty": 30,
+    "forty": 40,
+    "fifty": 50,
+    "sixty": 60,
+    "seventy": 70,
+    "eighty": 80,
+    "ninety": 90,
+}
+
+TIMER_UNITS = {
+    "second": 1,
+    "seconds": 1,
+    "sec": 1,
+    "secs": 1,
+    "minute": 60,
+    "minutes": 60,
+    "min": 60,
+    "mins": 60,
+    "hour": 3600,
+    "hours": 3600,
+}
+
+
+def parse_number_tokens(tokens) -> int:
+    value = 0
+    current = 0
+    saw_number = False
+
+    for token in tokens:
+        if token in {
+            "and",
+        }:
+            continue
+
+        if token in {
+            "a",
+            "an",
+        }:
+            current += 1
+            saw_number = True
+            continue
+
+        if token.isdigit():
+            current += int(token)
+            saw_number = True
+            continue
+
+        if token in NUMBER_WORDS:
+            current += NUMBER_WORDS[token]
+            saw_number = True
+            continue
+
+        if token == "hundred":
+            current = max(
+                1,
+                current,
+            ) * 100
+            saw_number = True
+            continue
+
+        return 0
+
+    if not saw_number:
+        return 0
+
+    value += current
+    return value
+
+
+def parse_duration_seconds(
+    text: str,
+) -> int:
+    tokens = normalize_text(
+        text
+    ).split()
+
+    total = 0
+
+    for index, token in enumerate(
+        tokens
+    ):
+        multiplier = TIMER_UNITS.get(
+            token
+        )
+
+        if multiplier is None:
+            continue
+
+        number_tokens = []
+        cursor = index - 1
+
+        while cursor >= 0:
+            candidate = tokens[
+                cursor
+            ]
+
+            if (
+                candidate.isdigit()
+                or candidate in NUMBER_WORDS
+                or candidate in {
+                    "a",
+                    "an",
+                    "and",
+                    "hundred",
+                }
+            ):
+                number_tokens.insert(
+                    0,
+                    candidate,
+                )
+                cursor -= 1
+                continue
+
+            break
+
+        amount = parse_number_tokens(
+            number_tokens
+        )
+
+        if amount > 0:
+            total += (
+                amount
+                * multiplier
+            )
+
+    if (
+        total <= 0
+        or total > MAX_TIMER_SECONDS
+    ):
+        return 0
+
+    return total
+
+
+def parse_timer_intent(
+    text: str,
+):
+    normalized = normalize_text(
+        text
+    )
+
+    tokens = normalized.split()
+    token_set = set(tokens)
+
+    if (
+        "timer" in token_set
+        and (
+            "cancel" in token_set
+            or "stop" in token_set
+            or "clear" in token_set
+        )
+    ):
+        return {
+            "action": "CANCEL_TIMER",
+        }
+
+    if (
+        "left" in token_set
+        or "remaining" in token_set
+        or (
+            "how" in token_set
+            and "long" in token_set
+        )
+    ):
+        return {
+            "action": "TIMER_LEFT",
+        }
+
+    duration_seconds = (
+        parse_duration_seconds(
+            normalized
+        )
+    )
+
+    if (
+        "timer" in token_set
+        and duration_seconds > 0
+    ):
+        return {
+            "action": "SET_TIMER",
+            "duration_seconds": duration_seconds,
+        }
+
+    return None
+
+
+def _timer_finished():
+    global ACTIVE_TIMER_DEADLINE
+    global ACTIVE_TIMER_SECONDS
+    global ACTIVE_TIMER_THREAD
+
+    with TIMER_LOCK:
+        ACTIVE_TIMER_DEADLINE = None
+        ACTIVE_TIMER_SECONDS = 0
+        ACTIVE_TIMER_THREAD = None
+
+    queue_command(
+        "TIMER_DONE"
+    )
+
+    print(
+        "timer=done; command queued",
+        flush=True,
+    )
+
+
+def set_active_timer(
+    duration_seconds: int,
+):
+    global ACTIVE_TIMER_DEADLINE
+    global ACTIVE_TIMER_SECONDS
+    global ACTIVE_TIMER_THREAD
+
+    with TIMER_LOCK:
+        if ACTIVE_TIMER_THREAD is not None:
+            ACTIVE_TIMER_THREAD.cancel()
+
+        ACTIVE_TIMER_SECONDS = (
+            duration_seconds
+        )
+
+        ACTIVE_TIMER_DEADLINE = (
+            time.monotonic()
+            + duration_seconds
+        )
+
+        ACTIVE_TIMER_THREAD = (
+            threading.Timer(
+                duration_seconds,
+                _timer_finished,
+            )
+        )
+
+        ACTIVE_TIMER_THREAD.daemon = True
+        ACTIVE_TIMER_THREAD.start()
+
+
+def cancel_active_timer() -> bool:
+    global ACTIVE_TIMER_DEADLINE
+    global ACTIVE_TIMER_SECONDS
+    global ACTIVE_TIMER_THREAD
+
+    with TIMER_LOCK:
+        had_timer = (
+            ACTIVE_TIMER_DEADLINE
+            is not None
+        )
+
+        if ACTIVE_TIMER_THREAD is not None:
+            ACTIVE_TIMER_THREAD.cancel()
+
+        ACTIVE_TIMER_DEADLINE = None
+        ACTIVE_TIMER_SECONDS = 0
+        ACTIVE_TIMER_THREAD = None
+
+    return had_timer
+
+
+def timer_remaining_seconds():
+    with TIMER_LOCK:
+        deadline = (
+            ACTIVE_TIMER_DEADLINE
+        )
+
+    if deadline is None:
+        return None
+
+    remaining = int(
+        max(
+            0,
+            (
+                deadline
+                - time.monotonic()
+            )
+            + 0.999,
+        )
+    )
+
+    if remaining <= 0:
+        return None
+
+    return remaining
+
+
+def apply_timer_intent(
+    parsed,
+):
+    action = parsed.get(
+        "action"
+    )
+
+    if action == "SET_TIMER":
+        duration_seconds = int(
+            parsed[
+                "duration_seconds"
+            ]
+        )
+
+        set_active_timer(
+            duration_seconds
+        )
+
+        return {
+            "ok": True,
+            "intent": "TIMER_SET",
+            "duration_seconds": duration_seconds,
+            "remaining_seconds": duration_seconds,
+        }
+
+    if action == "TIMER_LEFT":
+        remaining = (
+            timer_remaining_seconds()
+        )
+
+        if remaining is None:
+            return {
+                "ok": False,
+                "intent": "TIMER_LEFT",
+                "error": "NO_TIMER",
+            }
+
+        return {
+            "ok": True,
+            "intent": "TIMER_LEFT",
+            "remaining_seconds": remaining,
+        }
+
+    if action == "CANCEL_TIMER":
+        cancelled = (
+            cancel_active_timer()
+        )
+
+        return {
+            "ok": cancelled,
+            "intent": "TIMER_CANCEL",
+            "error": (
+                None
+                if cancelled
+                else "NO_TIMER"
+            ),
+        }
+
+    return {
+        "ok": False,
+        "intent": None,
+        "error": "NO_MATCH",
+    }
+
+
 def transcribe_wav_in_memory(wav_bytes: bytes) -> str:
     boundary = "----emi-" + uuid.uuid4().hex
 
@@ -454,7 +896,7 @@ def transcribe_wav_in_memory(wav_bytes: bytes) -> str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "emi-hub/0.12"
+    server_version = "emi-hub/0.13"
 
     def _send_bytes(self, status: int, body: bytes, content_type: str):
         self.send_response(status)
@@ -526,12 +968,45 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "service": "emi-hub",
-                    "version": "0.12",
+                    "version": "0.13",
                     "whisper": (
                         f"{WHISPER_HOST}:"
                         f"{WHISPER_PORT}"
                     ),
-                    "recognizer": "vosk-dual-gate",
+                    "recognizer": "vosk-wake-time-timer-gates",
+                },
+            )
+            return
+
+        if self.path == "/device/timer":
+            if not self._device_authorized():
+                self._send_json(
+                    401,
+                    {
+                        "ok": False,
+                        "error": "UNAUTHORIZED",
+                    },
+                )
+                return
+
+            remaining = (
+                timer_remaining_seconds()
+            )
+
+            self._send_json(
+                200,
+                {
+                    "ok": True,
+                    "active": (
+                        remaining
+                        is not None
+                    ),
+                    "remaining_seconds": (
+                        remaining
+                        if remaining
+                        is not None
+                        else 0
+                    ),
                 },
             )
             return
@@ -654,7 +1129,8 @@ class Handler(BaseHTTPRequestHandler):
             (
                 wake_confidence,
                 time_confidence,
-            ) = recognize_time_command(
+                timer_confidence,
+            ) = recognize_voice_gates(
                 wav_bytes
             )
 
@@ -672,7 +1148,9 @@ class Handler(BaseHTTPRequestHandler):
                 "wake_conf="
                 f"{wake_confidence:.2f} "
                 "time_conf="
-                f"{time_confidence:.2f}",
+                f"{time_confidence:.2f} "
+                "timer_conf="
+                f"{timer_confidence:.2f}",
                 flush=True,
             )
         except Exception as exc:
@@ -690,13 +1168,12 @@ class Handler(BaseHTTPRequestHandler):
                 },
             )
             return
-        finally:
-            wav_bytes = b""
-
         if (
             wake_confidence
             < VOSK_MIN_WAKE_CONFIDENCE
         ):
+            wav_bytes = b""
+
             print(
                 "voice=no_wake_word",
                 flush=True,
@@ -713,12 +1190,97 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
+        # Timer-like phrases use Whisper only after the exact EMI
+        # acoustic wake gate has passed. Whisper is used only to recover
+        # duration/action text; the action itself is deterministic.
+        if (
+            timer_confidence
+            >= VOSK_MIN_TIMER_CONFIDENCE
+        ):
+            whisper_started = (
+                time.monotonic()
+            )
+
+            try:
+                transcript = (
+                    transcribe_wav_in_memory(
+                        wav_bytes
+                    )
+                )
+
+                whisper_ms = int(
+                    (
+                        time.monotonic()
+                        - whisper_started
+                    )
+                    * 1000
+                )
+
+                parsed_timer = (
+                    parse_timer_intent(
+                        transcript
+                    )
+                )
+
+                transcript = ""
+            except Exception as exc:
+                wav_bytes = b""
+
+                print(
+                    "timer transcription failed: "
+                    f"{type(exc).__name__}",
+                    flush=True,
+                )
+
+                self._send_json(
+                    503,
+                    {
+                        "ok": False,
+                        "error": "WHISPER_UNAVAILABLE",
+                    },
+                )
+                return
+
+            if parsed_timer is not None:
+                wav_bytes = b""
+
+                result = (
+                    apply_timer_intent(
+                        parsed_timer
+                    )
+                )
+
+                result[
+                    "recognize_ms"
+                ] = recognize_ms
+
+                result[
+                    "whisper_ms"
+                ] = whisper_ms
+
+                print(
+                    "voice intent="
+                    f"{result.get('intent')} "
+                    f"ok={result.get('ok')}",
+                    flush=True,
+                )
+
+                self._send_json(
+                    200,
+                    result,
+                )
+                return
+
+        wav_bytes = b""
+
+        # If the timer gate was a false positive, fall back to the
+        # established fast TIME path instead of rejecting the phrase.
         if (
             time_confidence
             < VOSK_MIN_TIME_CONFIDENCE
         ):
             print(
-                "voice=no_time_intent",
+                "voice=no_known_intent",
                 flush=True,
             )
 
@@ -744,21 +1306,15 @@ class Handler(BaseHTTPRequestHandler):
             "recognize_ms": recognize_ms,
         }
 
-        if result["ok"]:
-            queue_command(
-                result["command"]
-            )
+        queue_command(
+            result["command"]
+        )
 
-            print(
-                "voice intent=TIME matched; "
-                "command queued",
-                flush=True,
-            )
-        else:
-            print(
-                "voice intent=NO_MATCH",
-                flush=True,
-            )
+        print(
+            "voice intent=TIME matched; "
+            "command queued",
+            flush=True,
+        )
 
         self._send_json(
             200,
@@ -873,7 +1429,7 @@ def main():
     )
 
     print(
-        f"emi-hub 0.12 listening on "
+        f"emi-hub 0.13 listening on "
         f"{HOST}:{PORT}",
         flush=True,
     )

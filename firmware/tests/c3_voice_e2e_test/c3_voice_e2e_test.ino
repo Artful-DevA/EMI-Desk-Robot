@@ -7,11 +7,15 @@
 #include "secrets.h"
 
 // ============================================================
-// EMI - C3 END-TO-END VOICE TEST v3
+// EMI - C3 END-TO-END VOICE + TIMER TEST v4
 //
 // This temporary test isolates the voice path:
 //
-// mic -> VAD -> RAM WAV -> Pi -> Whisper -> intent -> OLED
+// mic -> acoustic candidate -> Pi wake/intent gates -> command -> OLED
+//
+// Timer core is owned by the Pi. The C3 keeps a local countdown mirror
+// only so the current diagnostic firmware can show expiry without polling
+// the network continuously while listening for voice.
 //
 // It deliberately does NOT run Emi's normal personality/polling loop.
 // That removes Wi-Fi polling noise and makes VAD tuning much easier.
@@ -106,6 +110,12 @@ float smoothedLevel = 0.0f;
 unsigned long lastDebug = 0;
 unsigned long cooldownUntil = 0;
 
+bool localTimerActive = false;
+unsigned long localTimerDeadline = 0;
+
+bool timerDoneVisible = false;
+unsigned long timerDoneUntil = 0;
+
 
 // ------------------------------------------------------------
 // OLED
@@ -158,6 +168,195 @@ void showTime(
   );
 
   display.sendBuffer();
+}
+
+
+String timerText(
+  uint32_t seconds
+) {
+  if (seconds < 60) {
+    return
+      String(seconds) +
+      "s";
+  }
+
+  if (seconds < 3600) {
+    uint32_t minutes =
+      seconds / 60;
+
+    uint32_t secs =
+      seconds % 60;
+
+    String text =
+      String(minutes) +
+      ":";
+
+    if (secs < 10) {
+      text += "0";
+    }
+
+    text +=
+      String(secs);
+
+    return text;
+  }
+
+  uint32_t hours =
+    seconds / 3600;
+
+  uint32_t minutes =
+    (seconds % 3600) /
+    60;
+
+  return
+    String(hours) +
+    "h " +
+    String(minutes) +
+    "m";
+}
+
+
+void showTimerValue(
+  uint32_t seconds
+) {
+  String text =
+    timerText(
+      seconds
+    );
+
+  display.clearBuffer();
+
+  display.setFont(
+    u8g2_font_logisoso24_tf
+  );
+
+  int width =
+    display.getStrWidth(
+      text.c_str()
+    );
+
+  if (width > 124) {
+    display.setFont(
+      u8g2_font_10x20_tf
+    );
+
+    width =
+      display.getStrWidth(
+        text.c_str()
+      );
+  }
+
+  display.drawStr(
+    max(
+      2,
+      (128 - width) / 2
+    ),
+    43,
+    text.c_str()
+  );
+
+  display.sendBuffer();
+}
+
+
+void startLocalTimerMirror(
+  uint32_t seconds
+) {
+  localTimerActive =
+    seconds > 0;
+
+  localTimerDeadline =
+    millis() +
+    seconds * 1000UL;
+
+  timerDoneVisible =
+    false;
+}
+
+
+void clearLocalTimerMirror() {
+  localTimerActive =
+    false;
+
+  localTimerDeadline =
+    0;
+
+  timerDoneVisible =
+    false;
+}
+
+
+uint32_t localTimerRemaining() {
+  if (!localTimerActive) {
+    return 0;
+  }
+
+  long delta =
+    (long)(
+      localTimerDeadline -
+      millis()
+    );
+
+  if (delta <= 0) {
+    return 0;
+  }
+
+  return
+    (uint32_t)(
+      (
+        (unsigned long)delta +
+        999UL
+      )
+      /
+      1000UL
+    );
+}
+
+
+void updateLocalTimer() {
+  if (
+    localTimerActive &&
+    localTimerRemaining() == 0
+  ) {
+    localTimerActive =
+      false;
+
+    timerDoneVisible =
+      true;
+
+    timerDoneUntil =
+      millis() +
+      5000UL;
+
+    Serial.println(
+      "TIMER: DONE"
+    );
+
+    showStatus(
+      "TIMER",
+      "DONE"
+    );
+
+    return;
+  }
+
+  if (
+    timerDoneVisible &&
+    (long)(
+      millis() -
+      timerDoneUntil
+    )
+    >=
+    0
+  ) {
+    timerDoneVisible =
+      false;
+
+    showStatus(
+      "VOICE TEST",
+      "READY"
+    );
+  }
 }
 
 
@@ -691,6 +890,77 @@ String jsonString(
 }
 
 
+long jsonInt(
+  const String &body,
+  const String &key,
+  long fallback = -1
+) {
+  String needle =
+    "\"" +
+    key +
+    "\":";
+
+  int start =
+    body.indexOf(
+      needle
+    );
+
+  if (start < 0) {
+    return fallback;
+  }
+
+  start +=
+    needle.length();
+
+  while (
+    start < body.length() &&
+    body.charAt(start) == ' '
+  ) {
+    start++;
+  }
+
+  bool negative = false;
+
+  if (
+    start < body.length() &&
+    body.charAt(start) == '-'
+  ) {
+    negative = true;
+    start++;
+  }
+
+  long value = 0;
+  bool foundDigit = false;
+
+  while (
+    start < body.length() &&
+    isDigit(
+      body.charAt(start)
+    )
+  ) {
+    foundDigit = true;
+
+    value =
+      value * 10 +
+      (
+        body.charAt(start) -
+        '0'
+      );
+
+    start++;
+  }
+
+  if (!foundDigit) {
+    return fallback;
+  }
+
+  return
+    negative
+    ? -value
+    : value;
+}
+
+
 void showHubResult(
   const String &body
 ) {
@@ -731,6 +1001,149 @@ void showHubResult(
       showTime(hhmm);
       delay(2200);
     }
+
+    showStatus(
+      "VOICE TEST",
+      "READY"
+    );
+
+    return;
+  }
+
+  if (intent == "TIMER_SET") {
+    long seconds =
+      jsonInt(
+        body,
+        "remaining_seconds",
+        -1
+      );
+
+    if (seconds > 0) {
+      startLocalTimerMirror(
+        (uint32_t)seconds
+      );
+
+      Serial.print(
+        "RESULT: timer set for "
+      );
+
+      Serial.print(
+        seconds
+      );
+
+      Serial.println(
+        " seconds."
+      );
+
+      showTimerValue(
+        (uint32_t)seconds
+      );
+
+      delay(1400);
+
+      showStatus(
+        "VOICE TEST",
+        "READY"
+      );
+    }
+
+    return;
+  }
+
+  if (intent == "TIMER_LEFT") {
+    long seconds =
+      jsonInt(
+        body,
+        "remaining_seconds",
+        -1
+      );
+
+    if (seconds > 0) {
+      startLocalTimerMirror(
+        (uint32_t)seconds
+      );
+
+      Serial.print(
+        "RESULT: timer remaining="
+      );
+
+      Serial.println(
+        seconds
+      );
+
+      showTimerValue(
+        (uint32_t)seconds
+      );
+
+      delay(1800);
+
+      showStatus(
+        "VOICE TEST",
+        "READY"
+      );
+    }
+
+    else {
+      Serial.println(
+        "RESULT: no active timer."
+      );
+
+      clearLocalTimerMirror();
+
+      showStatus(
+        "TIMER",
+        "NONE"
+      );
+
+      delay(1000);
+
+      showStatus(
+        "VOICE TEST",
+        "READY"
+      );
+    }
+
+    return;
+  }
+
+  if (intent == "TIMER_CANCEL") {
+    clearLocalTimerMirror();
+
+    Serial.println(
+      "RESULT: timer cancelled."
+    );
+
+    showStatus(
+      "TIMER",
+      "CANCELLED"
+    );
+
+    delay(1000);
+
+    showStatus(
+      "VOICE TEST",
+      "READY"
+    );
+
+    return;
+  }
+
+  if (
+    error ==
+    "NO_TIMER"
+  ) {
+    clearLocalTimerMirror();
+
+    Serial.println(
+      "RESULT: no active timer."
+    );
+
+    showStatus(
+      "TIMER",
+      "NONE"
+    );
+
+    delay(1000);
 
     showStatus(
       "VOICE TEST",
@@ -898,6 +1311,95 @@ void uploadCapture() {
   showHubResult(
     body
   );
+}
+
+
+// ------------------------------------------------------------
+// TIMER SYNC
+// ------------------------------------------------------------
+
+void syncTimerFromHub() {
+  if (
+    WiFi.status() !=
+    WL_CONNECTED
+  ) {
+    return;
+  }
+
+  WiFiClient client;
+  HTTPClient http;
+
+  String url =
+    "http://" +
+    String(EMI_HUB_HOST) +
+    ":" +
+    String(EMI_HUB_PORT) +
+    "/device/timer";
+
+  http.setConnectTimeout(
+    1000
+  );
+
+  http.setTimeout(
+    2000
+  );
+
+  if (
+    !http.begin(
+      client,
+      url
+    )
+  ) {
+    return;
+  }
+
+  http.addHeader(
+    "X-EMI-Token",
+    EMI_SHARED_TOKEN
+  );
+
+  int status =
+    http.GET();
+
+  String body =
+    http.getString();
+
+  http.end();
+
+  if (status != 200) {
+    return;
+  }
+
+  long seconds =
+    jsonInt(
+      body,
+      "remaining_seconds",
+      0
+    );
+
+  if (
+    body.indexOf(
+      "\"active\":true"
+    )
+    >= 0 &&
+    seconds > 0
+  ) {
+    startLocalTimerMirror(
+      (uint32_t)seconds
+    );
+
+    Serial.print(
+      "Timer synced from Pi. remaining="
+    );
+
+    Serial.println(
+      seconds
+    );
+  }
+
+  else {
+    clearLocalTimerMirror();
+  }
 }
 
 
@@ -1238,6 +1740,8 @@ void setup() {
 
   calibrateRoom();
 
+  syncTimerFromHub();
+
   Serial.println();
   Serial.println(
     "================================"
@@ -1249,7 +1753,10 @@ void setup() {
     "OLED stays READY for random noise."
   );
   Serial.println(
-    "Try: Emi time   OR   Time Emi"
+    "Try: Emi time / Emi set a timer for 30 seconds"
+  );
+  Serial.println(
+    "Also: Emi how much time is left / Emi cancel timer"
   );
   Serial.println(
     "================================"
@@ -1279,6 +1786,8 @@ void loop() {
 
     calibrateRoom();
   }
+
+  updateLocalTimer();
 
   processDetector();
 }

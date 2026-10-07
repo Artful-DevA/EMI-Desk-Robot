@@ -111,7 +111,10 @@ Planned language features:
 - todo list
 - task completion
 - subtasks
-- timers
+- **single voice timer implemented in the current prototype**
+- **set timer / time-left query / cancel timer implemented**
+- **timer state owned by the Raspberry Pi hub so a C3 reset can resync while the hub remains running**
+- timer state is currently RAM-only on the Pi; Pi-reboot persistence is not implemented yet
 - multiple timers
 - task-linked timers
 - stopwatch
@@ -119,7 +122,7 @@ Planned language features:
 - focus sessions
 - reminders
 - readable timer overlay on the OLED
-- timer state stored by the hub so ESP32 restarts do not destroy tasks
+- final timer corner/eyes animation is still planned
 
 ## Time and display UI
 
