@@ -651,8 +651,10 @@ void drawSegmentDigit(
   int digit
 ) {
 
-  const int w = 17;
-  const int h = 31;
+  // Keep clock digits slightly smaller than the normal eyes so the
+  // two time groups sit naturally inside the same visual face area.
+  const int w = 14;
+  const int h = 27;
   const int t = 3;
 
   const int horizontalW =
@@ -776,12 +778,52 @@ void drawSegmentDigit(
 
 void drawLargeClock(bool colonOn) {
 
-  const int y = 17;
+  // Optical layout:
+  // - HH is centered on Emi's normal left eye
+  // - MM is centered on Emi's normal right eye
+  // - the whole clock is vertically centered on the normal eye line
+  const int digitW = 14;
+  const int digitH = 27;
+  const int pairGap = 4;
+  const int pairWidth =
+    digitW * 2 +
+    pairGap;
 
-  const int d1x = 13;
-  const int d2x = 34;
-  const int d3x = 77;
-  const int d4x = 98;
+  const int y =
+    EYE_CENTER_Y -
+    digitH / 2;
+
+  const int leftEyeCenter =
+    LEFT_EYE_X +
+    EYE_WIDTH / 2;
+
+  const int rightEyeCenter =
+    RIGHT_EYE_X +
+    EYE_WIDTH / 2;
+
+  const int leftPairX =
+    leftEyeCenter -
+    pairWidth / 2;
+
+  const int rightPairX =
+    rightEyeCenter -
+    pairWidth / 2;
+
+  const int d1x =
+    leftPairX;
+
+  const int d2x =
+    leftPairX +
+    digitW +
+    pairGap;
+
+  const int d3x =
+    rightPairX;
+
+  const int d4x =
+    rightPairX +
+    digitW +
+    pairGap;
 
   drawSegmentDigit(
     d1x,
@@ -810,19 +852,20 @@ void drawLargeClock(bool colonOn) {
 
   if (colonOn) {
 
+    // Keep the colon visually centered between both eye-aligned groups.
     display.drawRBox(
-      65,
-      25,
-      4,
-      4,
+      63,
+      EYE_CENTER_Y - 7,
+      3,
+      3,
       1
     );
 
     display.drawRBox(
-      65,
-      37,
-      4,
-      4,
+      63,
+      EYE_CENTER_Y + 5,
+      3,
+      3,
       1
     );
   }
@@ -960,21 +1003,11 @@ void drawClockTransition() {
     CLOCK_HOLDING
   ) {
 
-    bool colonOn =
-      (
-        (
-          now /
-          500
-        )
-        %
-        2
-      )
-      ==
-      0;
-
-
+    // Keep the colon visible for the entire short clock display.
+    // With only a ~2 second hold, blinking it made the time briefly read
+    // like a four-digit number instead of HH:MM.
     drawLargeClock(
-      colonOn
+      true
     );
 
 
