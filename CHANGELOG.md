@@ -2,6 +2,15 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - OLED microphone meter
+
+### Changed
+
+- microphone validation test now displays live LEVEL and PEAK values on the SH1106 OLED
+- added a large horizontal live audio meter for testing the soldered microphone without Serial Monitor
+- OLED test uses the existing ESP32 DevKit I2C wiring: SDA GPIO21 and SCL GPIO22
+- test applies OLED contrast 100 to reduce excessive brightness
+
 ## 2026-10-07 - Soldered microphone validation test
 
 ### Added
