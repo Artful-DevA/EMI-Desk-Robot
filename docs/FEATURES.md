@@ -110,6 +110,11 @@ Planned language features:
 - suppress interruptions shortly before important events
 - movement reminders only when calendar context says interruption is appropriate
 - free/busy awareness without requiring storage of unnecessary calendar details
+- class/meeting speech gate based on current audio output
+- if headphones are the active output during a class/meeting, EMI may speak normally or quietly
+- if speakers are the active output during a class/meeting, EMI should stay silent and use visual/text feedback instead
+- if EMI cannot confidently determine whether the output is private, default to silence during class/meeting context
+- manual override should be possible
 
 ## Notes and transcripts
 
@@ -137,6 +142,9 @@ Notes are an explicit mode, not a passive transcript of ordinary life.
 - explicit manual target switching
 - automatic fallback if selected device disconnects
 - separate control target and speaker/output target
+- detect the active Ubuntu audio sink/output type where practical
+- follow the system default output so switching between speakers and headphones also moves EMI's voice
+- speech-permission policy can suppress TTS independently of other EMI actions
 - media play/pause
 - volume control
 - current song
