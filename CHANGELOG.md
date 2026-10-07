@@ -2,6 +2,13 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Fix voice firmware include formatting
+
+### Fixed
+
+- corrected the FreeRTOS semaphore include in the new voice-enabled C3 firmware so it is a real preprocessor line instead of a literal escaped newline
+- no behavior change; this is a compile fix for the voice-control build
+
 ## 2026-10-07 - Prepare first spoken-command test
 
 ### Changed
