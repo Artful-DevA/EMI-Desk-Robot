@@ -10,16 +10,16 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **04:21:43 tracked so far** |
-| **Current exact session** | **ACTIVE - 04:21:43 at latest checkpoint** |
+| **Exact tracked development time** | **02:56:35 tracked so far** |
+| **Current exact session** | **ACTIVE - 01:05:47 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
-| **Completed exact sessions** | 0 |
+| **Completed exact sessions** | 1 |
 | **Current controller** | ESP32-C3 Super Mini |
 | **Previous controller** | ESP32 DevKit V1 |
 | **Verified hardware** | SH1106 OLED, TTP223 touch, I2S microphone |
 | **Current physical form** | Cable Engineering Edition |
-| **Current software milestone** | Authenticated Pi -> C3 command bridge implemented; hardware test pending |
-| **Next major milestone** | Validate physical Pi -> C3 clock trigger, then stream mic audio in RAM |
+| **Current software milestone** | C3 Wi-Fi working reliably at 8.5 dBm; normal EMI firmware updated |
+| **Next major milestone** | Reassemble on breadboard, validate Pi -> C3 clock trigger, then stream mic audio in RAM |
 | **Last updated** | 2026-10-07 |
 
 > **Privacy-safe exact-time rule:** the public dev log records only durations, never the clock time when work started or ended. During an active build session, the running elapsed duration is checkpointed here so the tracker does not misleadingly show zero. Exact timestamps may be used privately to calculate the duration, but only the resulting duration is published. The older ~2-hour estimate remains legacy history and is never mixed into the exact total.
@@ -28,7 +28,18 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Session | Exact duration | Notes |
 | --- | --- | --- |
-| 1 | ACTIVE - 04:21:43 at latest checkpoint | Exact tracking enabled; session is still running |
+| 1 | 01:50:48 | First exact tracked block; ended before a user-reported 1h30m break |
+| 2 | ACTIVE - 01:05:47 at latest checkpoint | Tracking resumed after the 1h30m break |
+
+## 2026-10-07 - GPIO 9 retired from OLED duty
+
+The OLED clock line was moved from **GPIO 9 to GPIO 7**. GPIO 9 is a BOOT strapping pin on the ESP32-C3, and keeping an I2C pull-up attached there made manual flashing/recovery unnecessarily fragile.
+
+The normal EMI firmware now uses GPIO 7 for OLED SCL and keeps GPIO 9 free for BOOT/download mode.
+
+The user also clarified that there was a **1h30m break** during the exact tracking window. That break has been removed from the exact total rather than counted as development time.
+
+---
 
 ## Backstory - before the tracked C3 migration session
 
