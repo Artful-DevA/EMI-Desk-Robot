@@ -8,15 +8,14 @@
 // SH1106 128x64 OLED
 // TTP223 touch sensor on GPIO 27
 //
-// Personality revision:
+// Personality + UI revision:
 // - internal curiosity + contentment drives
-// - recent-action memory to avoid repeating the same idle move
+// - recent-action memory to reduce idle repetition
 // - several distinct idle behavior sequences
-// - longer periods of deliberate stillness
 // - fast upward attention when petting starts
-// - every real stroke gets a contented partial eye-close
-// - pet enjoyment grows slightly across a petting session
-// - no vertical petting bounce
+// - gentler partial eye-close on each real pet stroke
+// - 10-minute miniature timer test in the top-right corner
+// - timer hides during petting so EMI's face keeps priority
 // ============================================================
 
 
@@ -70,10 +69,6 @@ unsigned long gazeDuration = 100;
 
 // ------------------------------------------------------------
 // PERSONALITY DRIVES
-//
-// These are intentionally simple.
-// They make behavior depend on what EMI has been doing,
-// instead of every idle movement being pure random chance.
 // ------------------------------------------------------------
 
 float curiosity = 0.38f;
@@ -150,7 +145,6 @@ unsigned long touchChangedAt = 0;
 const unsigned long TOUCH_DEBOUNCE = 30;
 const unsigned long PET_GRACE_TIME = 2200;
 
-// Prevent contact chatter from being interpreted as many pats.
 const unsigned long MIN_PAT_INTERVAL = 280;
 
 bool petting = false;
@@ -169,17 +163,17 @@ unsigned long nextPetDrift = 0;
 
 
 // ------------------------------------------------------------
-// CONTENTED PARTIAL EYE-CLOSE
+// GENTLE CONTENTED PARTIAL EYE-CLOSE
 // ------------------------------------------------------------
 
 bool petStrokeActive = false;
 
 unsigned long petStrokeStart = 0;
 
-const unsigned long PET_STROKE_DURATION = 430;
+// Slightly shorter and much less closed than the prior version.
+const unsigned long PET_STROKE_DURATION = 390;
 
-// This changes slightly as EMI becomes more content.
-float petStrokeMaxClosure = 0.42f;
+float petStrokeMaxClosure = 0.32f;
 
 
 // ------------------------------------------------------------
@@ -188,6 +182,19 @@ float petStrokeMaxClosure = 0.42f;
 
 bool relaxedBlinkPending = false;
 bool relaxedBlinkDone = false;
+
+
+// ------------------------------------------------------------
+// 10-MINUTE MINI TIMER TEST
+//
+// This starts automatically at boot purely so we can judge
+// whether a tiny timer can coexist with EMI's face.
+// ------------------------------------------------------------
+
+const unsigned long TEST_TIMER_DURATION_MS =
+  10UL * 60UL * 1000UL;
+
+unsigned long testTimerStart = 0;
 
 
 // ------------------------------------------------------------
@@ -244,17 +251,13 @@ void updatePersonalityDrives() {
 
   if (petting) {
 
-    // Being interacted with settles EMI.
     curiosity -= 0.008f;
     contentment += 0.004f;
   }
 
   else {
 
-    // When left alone, curiosity slowly grows.
     curiosity += 0.012f;
-
-    // Contentment fades very slowly, not instantly.
     contentment -= 0.0025f;
   }
 
@@ -377,11 +380,11 @@ float getPetStrokeClosure() {
     (float)PET_STROKE_DURATION;
 
 
-  // Soft but fairly quick close.
-  if (t < 0.28f) {
+  // Gentle close.
+  if (t < 0.26f) {
 
     float closeT =
-      t / 0.28f;
+      t / 0.26f;
 
 
     return
@@ -390,18 +393,18 @@ float getPetStrokeClosure() {
   }
 
 
-  // Small contented hold.
-  if (t < 0.48f) {
+  // Very short contented hold.
+  if (t < 0.40f) {
 
     return
       petStrokeMaxClosure;
   }
 
 
-  // Slower reopen.
+  // Soft reopen.
   float openT =
-    (t - 0.48f) /
-    0.52f;
+    (t - 0.40f) /
+    0.60f;
 
 
   return
@@ -410,6 +413,105 @@ float getPetStrokeClosure() {
       1.0f -
       smoothStep(openT)
     );
+}
+
+
+// ------------------------------------------------------------
+// MINI TIMER
+// ------------------------------------------------------------
+
+void drawMiniTimer() {
+
+  // During petting, EMI's face gets the entire display.
+  if (petting) {
+    return;
+  }
+
+
+  unsigned long elapsed =
+    millis() - testTimerStart;
+
+
+  unsigned long remainingMs;
+
+
+  if (
+    elapsed >=
+    TEST_TIMER_DURATION_MS
+  ) {
+
+    remainingMs = 0;
+  }
+
+  else {
+
+    remainingMs =
+      TEST_TIMER_DURATION_MS -
+      elapsed;
+  }
+
+
+  unsigned long totalSeconds =
+    (remainingMs + 999UL) /
+    1000UL;
+
+
+  unsigned int minutes =
+    totalSeconds / 60UL;
+
+
+  unsigned int seconds =
+    totalSeconds % 60UL;
+
+
+  char timerText[6];
+
+
+  snprintf(
+    timerText,
+    sizeof(timerText),
+    "%02u:%02u",
+    minutes,
+    seconds
+  );
+
+
+  display.setFont(
+    u8g2_font_4x6_tf
+  );
+
+
+  int textWidth =
+    display.getStrWidth(
+      timerText
+    );
+
+
+  int textX =
+    127 -
+    textWidth;
+
+
+  // Clear a tiny quiet area behind the text so it stays
+  // legible even if an idle glance reaches the corner.
+  display.setDrawColor(0);
+
+  display.drawBox(
+    textX - 1,
+    0,
+    textWidth + 2,
+    8
+  );
+
+
+  display.setDrawColor(1);
+
+
+  display.drawStr(
+    textX,
+    6,
+    timerText
+  );
 }
 
 
@@ -453,7 +555,6 @@ void drawEmi() {
 
   if (petting) {
 
-    // Gentle petting expression.
     inward = 2;
   }
 
@@ -491,6 +592,9 @@ void drawEmi() {
     eyeHeight,
     radius
   );
+
+
+  drawMiniTimer();
 
 
   display.sendBuffer();
@@ -595,7 +699,6 @@ void startBlink() {
     millis();
 
 
-  // Rare enough that it doesn't become a pattern.
   if (
     random(100) < 2
   ) {
@@ -628,7 +731,6 @@ void startRelaxedBlink() {
 
 void scheduleNextBlink() {
 
-  // Large window helps break the "robot timer" feeling.
   nextBlinkTime =
     millis()
     + random(
@@ -645,17 +747,16 @@ void scheduleNextBlink() {
 IdleAction pickIdleAction() {
 
   int weights[IDLE_ACTION_COUNT] = {
-    22, // still
-    17, // micro glance
-    18, // focus
-    10, // curious peek
-    8,  // wide glance
-    12, // settle
-    13  // soft attention
+    22,
+    17,
+    18,
+    10,
+    8,
+    12,
+    13
   };
 
 
-  // High curiosity makes exploration more likely.
   weights[IDLE_CURIOUS_PEEK] +=
     (int)(
       curiosity * 18.0f
@@ -674,7 +775,6 @@ IdleAction pickIdleAction() {
     );
 
 
-  // High contentment favors calm / centered behavior.
   weights[IDLE_STILL] +=
     (int)(
       contentment * 18.0f
@@ -693,7 +793,6 @@ IdleAction pickIdleAction() {
     );
 
 
-  // Strongly discourage repeating the last two actions.
   weights[lastIdleAction] =
     max(
       1,
@@ -778,10 +877,7 @@ void chooseIdleAction() {
     action;
 
 
-  // ----------------------------------------------------------
   // STILL
-  // ----------------------------------------------------------
-
   if (
     action ==
     IDLE_STILL
@@ -798,10 +894,7 @@ void chooseIdleAction() {
   }
 
 
-  // ----------------------------------------------------------
   // MICRO GLANCE
-  // ----------------------------------------------------------
-
   if (
     action ==
     IDLE_MICRO_GLANCE
@@ -841,10 +934,7 @@ void chooseIdleAction() {
   }
 
 
-  // ----------------------------------------------------------
   // FOCUS + TINY CORRECTION
-  // ----------------------------------------------------------
-
   if (
     action ==
     IDLE_FOCUS
@@ -891,10 +981,7 @@ void chooseIdleAction() {
   }
 
 
-  // ----------------------------------------------------------
   // CURIOUS PEEK
-  // ----------------------------------------------------------
-
   if (
     action ==
     IDLE_CURIOUS_PEEK
@@ -959,10 +1046,7 @@ void chooseIdleAction() {
   }
 
 
-  // ----------------------------------------------------------
   // WIDE EXPLORATORY GLANCE
-  // ----------------------------------------------------------
-
   if (
     action ==
     IDLE_WIDE_GLANCE
@@ -1027,10 +1111,7 @@ void chooseIdleAction() {
   }
 
 
-  // ----------------------------------------------------------
   // SETTLE
-  // ----------------------------------------------------------
-
   if (
     action ==
     IDLE_SETTLE
@@ -1057,12 +1138,7 @@ void chooseIdleAction() {
   }
 
 
-  // ----------------------------------------------------------
   // SOFT ATTENTION
-  //
-  // A calm near-center, slightly-upward look.
-  // ----------------------------------------------------------
-
   startGaze(
     random(-3, 4),
     random(-6, -2),
@@ -1162,7 +1238,6 @@ void updateIdleFollowup() {
     FOLLOWUP_PEEK_SETTLE
   ) {
 
-    // Stay on the same side, but relax the extreme peek.
     float targetX;
 
 
@@ -1212,10 +1287,6 @@ void beginPetting() {
     FOLLOWUP_NONE;
 
 
-  // Immediate attention.
-  //
-  // 30 ms debounce + ~85 ms movement makes this feel
-  // like EMI notices your hand almost instantly.
   startGaze(
     0,
     -15,
@@ -1259,7 +1330,6 @@ void reactToPat() {
   patCount++;
 
 
-  // Each stroke increases contentment.
   contentment +=
     0.11f;
 
@@ -1284,23 +1354,26 @@ void reactToPat() {
     );
 
 
-  // First strokes are soft.
-  // Repeated petting makes the eye-close a little deeper.
+  // Much gentler than the prior version.
+  //
+  // First stroke is only a small soft close.
+  // Repeated petting can deepen it slightly, but never reaches
+  // the previous squint level.
   petStrokeMaxClosure =
-    0.36f +
+    0.27f +
     min(
       patCount,
       5
     )
-    * 0.035f +
-    contentment * 0.05f;
+    * 0.018f +
+    contentment * 0.025f;
 
 
   petStrokeMaxClosure =
     clampFloat(
       petStrokeMaxClosure,
-      0.40f,
-      0.60f
+      0.30f,
+      0.42f
     );
 
 
@@ -1310,8 +1383,6 @@ void reactToPat() {
     now;
 
 
-  // Don't deep-blink immediately.
-  // Let enjoyment build across several real strokes.
   if (
     patCount >= 4 &&
     !relaxedBlinkDone
@@ -1337,10 +1408,6 @@ void updatePettingMotion() {
     millis();
 
 
-  // Tiny, slow horizontal movement only.
-  //
-  // The first reaction is quick;
-  // once EMI is enjoying the pet, movement becomes calm.
   if (
     !gazeMoving &&
     !petStrokeActive &&
@@ -1383,7 +1450,6 @@ void endPetting() {
   petStrokeActive = false;
 
 
-  // Linger slightly upward if contentment is high.
   float returnY =
     -2.0f -
     contentment * 2.0f;
@@ -1399,8 +1465,6 @@ void endPetting() {
   scheduleNextBlink();
 
 
-  // After being petted, EMI naturally spends more time
-  // in calm behaviors because contentment remains elevated.
   nextIdleAction =
     millis()
     + random(
@@ -1602,6 +1666,10 @@ void setup() {
 
   gazeX = 0;
   gazeY = 0;
+
+
+  testTimerStart =
+    millis();
 
 
   drawEmi();
