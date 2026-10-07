@@ -12,25 +12,28 @@ Working now:
 
 - ESP32 DevKit V1 prototype controller
 - 128x64 SH1106 I2C OLED face
-- natural idle gaze
+- stateful idle personality with curiosity and contentment
 - smooth, infrequent blinking
 - TTP223 capacitive touch input
 - slow-pat session detection
 - fast "noticed you" response when touched
-- calm petting behavior with subtle movement
+- contented partial eye-close on individual pet strokes
 
 In progress:
 
 - I2S MEMS microphone
 - microphone soldering and validation
+- network / phone architecture
 
 Planned:
 
 - SG90 head movement
 - final ESP32-C3 Mini controller
-- local network link to a desktop
-- local TTS through PC speakers
+- simultaneous desktop + laptop agents
+- phone BLE provisioning and Wi-Fi setup
+- phone audio output / travel gateway
 - Raspberry Pi local speech-to-text
+- Tailscale link for travel use
 - structured local memory
 - safe allow-listed desktop actions
 - 3D-printed enclosure
@@ -41,6 +44,7 @@ Planned:
 - `docs/WIRING.md` - exact current wiring
 - `docs/SETUP.md` - Arduino IDE setup and upload instructions
 - `docs/HARDWARE.md` - parts and power notes
+- `docs/CONNECTIVITY.md` - desktop, laptop, phone, Wi-Fi, and travel architecture
 - `docs/SECURITY.md` - privacy and desktop-control design
 - `docs/ROADMAP.md` - development roadmap
 - `CHANGELOG.md` - firmware behavior changes
@@ -94,11 +98,21 @@ See [docs/SETUP.md](docs/SETUP.md) for setup details.
 
 ### Idle
 
-EMI usually keeps his eyes near center, occasionally makes a wider exploratory glance, moves with quick saccade-like shifts, holds attention instead of constantly wandering, and blinks roughly every 7-13 seconds.
+EMI no longer selects every idle move independently. He has simple internal curiosity and contentment values, remembers his recent idle actions, and chooses from several behavior sequences. This reduces obvious repetition and allows recent interaction to influence what he does next.
 
 ### Petting
 
-A touch starts a petting session. EMI quickly shifts his gaze high toward the touch area. Slow pats remain part of the same session for about 2.2 seconds after the last contact. During petting, his eyes sit slightly closer together, individual pats get a subtle inward acknowledgement, and his high gaze makes tiny slow horizontal shifts so he does not look frozen. After several pats, he can give one relaxed blink.
+A touch starts a petting session. EMI quickly shifts his gaze high toward the touch area. Slow pats remain part of the same session for about 2.2 seconds after the last contact. Every real stroke produces a smooth partial eye-close, and repeated petting gradually makes that reaction a little deeper. After several strokes he can give one deeper relaxed blink.
+
+## Connectivity direction
+
+Wi-Fi is the main runtime transport. BLE is primarily for phone pairing, Wi-Fi provisioning, and lightweight control.
+
+The home Raspberry Pi will act as the speech backend and central hub. Desktop and laptop agents can both remain connected simultaneously; desktop is the default priority until the user selects another target.
+
+When travelling without a computer, the phone can act as EMI's speaker and local gateway. EMI connects to the phone hotspot/local Wi-Fi, while the phone reaches the home Raspberry Pi through Tailscale.
+
+See [docs/CONNECTIVITY.md](docs/CONNECTIVITY.md) for the full design.
 
 ## Important power rules
 
@@ -127,7 +141,8 @@ EMI is designed to be local-first:
 - no camera
 - local speech recognition
 - no continuously required cloud AI
-- microphone used intentionally rather than unrestricted always-on listening
+- explicit microphone modes: off, push-to-talk, or always-listen
+- visible listening state
 - no arbitrary remote shell access
 - desktop actions exposed through an explicit allow-list
 - privileged actions require narrow helper commands and explicit confirmation
