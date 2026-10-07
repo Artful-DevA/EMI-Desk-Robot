@@ -3713,6 +3713,24 @@ void setup() {
   );
 
 
+  bool txPowerSet =
+    WiFi.setTxPower(
+      WIFI_POWER_8_5dBm
+    );
+
+
+  Serial.print(
+    "Wi-Fi TX power 8.5 dBm: "
+  );
+
+
+  Serial.println(
+    txPowerSet
+    ? "OK"
+    : "FAILED"
+  );
+
+
   xTaskCreate(
     networkTask,
     "emi-network",
