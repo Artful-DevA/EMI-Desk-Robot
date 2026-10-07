@@ -99,6 +99,11 @@ Planned language features:
 - small microphone/listening status icon
 - minimal overlays that do not turn EMI into a dashboard
 - face takes visual priority during direct interaction
+- automatic time-of-day OLED dimming
+- late-night brightness should reduce gradually rather than switch abruptly
+- target behavior: somewhat dimmer after midnight and very dim around 02:00-07:00
+- night mode should also suppress unnecessary attention-seeking behavior
+- brightness returns gradually in the morning
 
 ## Calendar and classes
 
