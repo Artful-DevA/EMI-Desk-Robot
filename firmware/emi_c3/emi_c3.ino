@@ -54,7 +54,8 @@ const int MIC_SD = 6;
 // ------------------------------------------------------------
 
 const unsigned long HUB_POLL_MS = 250;
-const unsigned long WIFI_RETRY_MS = 5000;
+const unsigned long WIFI_CONNECT_TIMEOUT_MS = 15000;
+const unsigned long WIFI_RETRY_PAUSE_MS = 2000;
 
 struct NetworkCommand {
   char text[48];
@@ -3135,8 +3136,13 @@ void networkTask(
   bool announcedConnection =
     false;
 
+  bool connecting =
+    false;
 
-  unsigned long lastRetry =
+  unsigned long attemptStarted =
+    0;
+
+  unsigned long retryAfter =
     0;
 
 
@@ -3145,27 +3151,86 @@ void networkTask(
     unsigned long now =
       millis();
 
+    wl_status_t status =
+      WiFi.status();
+
 
     if (
-      WiFi.status() !=
+      status ==
       WL_CONNECTED
     ) {
 
-      announcedConnection =
+      connecting =
         false;
 
 
       if (
-        now -
-        lastRetry >=
-        WIFI_RETRY_MS
+        !announcedConnection
       ) {
 
-        lastRetry =
-          now;
+        announcedConnection =
+          true;
 
 
-        WiFi.reconnect();
+        Serial.print(
+          "Wi-Fi connected. IP: "
+        );
+
+
+        Serial.println(
+          WiFi.localIP()
+        );
+      }
+
+
+      pollHubOnce();
+
+
+      vTaskDelay(
+        pdMS_TO_TICKS(
+          HUB_POLL_MS
+        )
+      );
+
+
+      continue;
+    }
+
+
+    announcedConnection =
+      false;
+
+
+    if (connecting) {
+
+      if (
+        now -
+        attemptStarted >=
+        WIFI_CONNECT_TIMEOUT_MS
+      ) {
+
+        Serial.print(
+          "Wi-Fi connection timed out. status="
+        );
+
+
+        Serial.println(
+          (int)status
+        );
+
+
+        WiFi.disconnect(
+          false,
+          false
+        );
+
+
+        connecting =
+          false;
+
+        retryAfter =
+          now +
+          WIFI_RETRY_PAUSE_MS;
       }
 
 
@@ -3181,30 +3246,41 @@ void networkTask(
 
 
     if (
-      !announcedConnection
+      (long)(
+        now -
+        retryAfter
+      )
+      >=
+      0
     ) {
 
-      announcedConnection =
-        true;
-
-
       Serial.print(
-        "Wi-Fi connected. IP: "
+        "Wi-Fi connecting to: "
       );
 
 
       Serial.println(
-        WiFi.localIP()
+        EMI_WIFI_SSID
       );
+
+
+      WiFi.begin(
+        EMI_WIFI_SSID,
+        EMI_WIFI_PASSWORD
+      );
+
+
+      attemptStarted =
+        now;
+
+      connecting =
+        true;
     }
-
-
-    pollHubOnce();
 
 
     vTaskDelay(
       pdMS_TO_TICKS(
-        HUB_POLL_MS
+        250
       )
     );
   }
@@ -3290,18 +3366,12 @@ void setup() {
 
 
   WiFi.setAutoReconnect(
-    true
+    false
   );
 
 
   WiFi.mode(
     WIFI_STA
-  );
-
-
-  WiFi.begin(
-    EMI_WIFI_SSID,
-    EMI_WIFI_PASSWORD
   );
 
 
