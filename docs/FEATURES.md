@@ -34,11 +34,11 @@ Planned internal dimensions:
 
 These values should influence probabilities and timing, not turn EMI into a melodramatic virtual pet.
 
-Power-off time should **not** accumulate unlimited sleep. Proposed rule:
+Power-off time should not accumulate unlimited sleep:
 
-- after a modest amount of powered-off time, rest credit reaches a cap
+- rest credit reaches a cap after a modest powered-off period
 - being off for 2 hours and 20 hours should both leave EMI reasonably rested
-- long absences must never produce absurd states such as "12 hours overslept and groggy"
+- long absences must never create absurd oversleep/groggy states
 - calendar DND, notes mode, and active timers can suppress attention-seeking behavior
 
 ## Speech and languages
@@ -58,7 +58,7 @@ Planned language features:
 - multilingual speech recognition
 - code-switching inside one sentence
 - canonical intent parsing independent of language
-- native-language TTS voice per language rather than an English voice reading foreign text
+- native-language TTS voice per language
 - German learning/practice
 - Dutch learning/practice
 - vocabulary progress
@@ -80,14 +80,14 @@ Planned language features:
 - counters
 - focus sessions
 - reminders
-- miniature timer overlay on the OLED
+- readable timer overlay on the OLED
 - timer state stored by the hub so ESP32 restarts do not destroy tasks
 
 ## Time and display UI
 
-- miniature timer in corner
+- readable timer in the top-right corner
 - current time view
-- smooth eyes-to-clock transition
+- smooth eyes-to-clock transition with a large central clock
 - clock-to-eyes return animation
 - small microphone/listening status icon
 - minimal overlays that do not turn EMI into a dashboard
@@ -164,29 +164,36 @@ Planned language features:
 
 ## Music awareness
 
-Preferred privacy-preserving design on Ubuntu:
+Music personalization is optional.
 
-- read current Spotify playback metadata locally through the desktop media interface where possible
-- learn aggregate play counts rather than keeping a permanent timestamped listening history
-- optional top artists / top tracks model
+Preferred privacy-preserving design:
+
+- read current Spotify/media metadata locally when useful
+- prefer coarse labels such as often / sometimes / rarely over permanent exact play counts
+- if temporary counts are needed to derive those labels, discard the detailed counters after aggregation
+- avoid permanent timestamped listening history
 - use decay so old listening patterns matter less over time
-- do not infer or store sensitive traits from music taste
+- do not infer sensitive personal traits from music taste
 
 ## Memory and learning about the user
 
-Memory should use tiers:
+Design principle: **functional memory, not intimate memory**.
 
-1. **ephemeral context** - disappears after a short time/session
-2. **observations** - low-confidence, automatically decay
-3. **derived preferences** - based on repeated behavior, decay if not reinforced
-4. **explicit facts** - only durable when directly supplied or confirmed
+EMI should remember what makes features work well, not try to build a human-like private biography.
+
+Memory tiers:
+
+1. ephemeral context - disappears after a short time/session
+2. observations - low-confidence, automatically decay
+3. derived preferences - repeated patterns, decay if not reinforced
+4. explicit facts - durable only when directly supplied or confirmed
 
 Planned capabilities:
 
-- people
+- people when explicitly needed
 - projects
 - tasks
-- routines
+- routines relevant to features
 - language progress
 - preferences
 - explicit remember / forget
@@ -196,7 +203,7 @@ Planned capabilities:
 - automatic forgetting for weak inferred memories
 - memory budget so EMI does not keep everything forever
 
-EMI should not intentionally "pretend to forget." Forgetting should be predictable retention/decay for privacy and realism.
+EMI should not intentionally pretend to forget. Forgetting should be predictable retention/decay for privacy and realism.
 
 ## Special dates
 
