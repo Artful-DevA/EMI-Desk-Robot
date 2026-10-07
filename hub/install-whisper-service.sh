@@ -25,21 +25,33 @@ cp "$SERVICE_SOURCE" "$SERVICE_DEST"
 systemctl --user daemon-reload
 systemctl --user enable --now emi-whisper.service
 
-sleep 1
+echo
+echo "Waiting for whisper-server to load the model..."
 
-if curl -fsS http://127.0.0.1:17841/ >/dev/null; then
-  echo
-  echo "EMI Whisper server is running."
-  echo "Local endpoint: http://127.0.0.1:17841/inference"
-  echo "Audio is decoded from the HTTP request in memory."
-  echo "Do NOT enable whisper-server --convert; that path may use temp files."
-else
-  echo
-  echo "EMI Whisper server did not answer yet."
-  echo "Service status:"
-  systemctl --user status emi-whisper.service --no-pager || true
-  echo
-  echo "Recent logs:"
-  journalctl --user -u emi-whisper.service -n 30 --no-pager || true
-  exit 1
-fi
+for i in {1..15}; do
+  if curl -fsS http://127.0.0.1:17841/ >/dev/null 2>&1; then
+    echo
+    echo "EMI Whisper server is running."
+    echo "Local endpoint: http://127.0.0.1:17841/inference"
+    echo "Audio is decoded from the HTTP request in memory."
+    exit 0
+  fi
+
+  if ! systemctl --user is-active --quiet emi-whisper.service; then
+    echo
+    echo "EMI Whisper server exited before becoming ready."
+    echo
+    echo "Full service status:"
+    systemctl --user status emi-whisper.service --no-pager -l || true
+    exit 1
+  fi
+
+  sleep 1
+done
+
+echo
+echo "EMI Whisper server is still starting or did not answer in time."
+echo
+echo "Full service status:"
+systemctl --user status emi-whisper.service --no-pager -l || true
+exit 1
