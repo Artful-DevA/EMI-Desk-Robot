@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **00:00:00 completed** |
-| **Current exact session** | **ACTIVE - duration will be finalized when the session ends** |
+| **Exact tracked development time** | **01:09:50 tracked so far** |
+| **Current exact session** | **ACTIVE - 01:09:50 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~45 minutes documented separately; not included in the exact total |
 | **Completed exact sessions** | 0 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -22,13 +22,13 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 | **Next major milestone** | Validate physical Pi -> C3 clock trigger, then stream mic audio in RAM |
 | **Last updated** | 2026-10-07 |
 
-> **Privacy-safe exact-time rule:** the public dev log records only durations, never the clock time when work started or ended. During a build session, exact timestamps may be used privately to calculate the duration, but only the resulting duration is published. The older ~45-minute estimate remains legacy history and is never mixed into the exact total.
+> **Privacy-safe exact-time rule:** the public dev log records only durations, never the clock time when work started or ended. During an active build session, the running elapsed duration is checkpointed here so the tracker does not misleadingly show zero. Exact timestamps may be used privately to calculate the duration, but only the resulting duration is published. The older ~45-minute estimate remains legacy history and is never mixed into the exact total.
 
 ## Exact session log
 
 | Session | Exact duration | Notes |
 | --- | --- | --- |
-| 1 | ACTIVE | Exact tracking enabled; duration will be recorded when the session ends |
+| 1 | ACTIVE - 01:09:50 at latest checkpoint | Exact tracking enabled; session is still running |
 
 ## Backstory - before the tracked C3 migration session
 
