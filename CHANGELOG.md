@@ -14,6 +14,7 @@ This changelog starts from the point where the GitHub repository became writable
 - after KWS confirms EMI, Whisper only has to recover the command words; it may return `time` without also spelling the wake word correctly
 - added a local venv/model installer for the small English int8 keyword-spotting model
 - C3 voice diagnostic v3 no longer displays LISTENING/PROCESSING for raw acoustic candidates
+- removed the remaining WHISPER and TOO SHORT OLED states so rejected acoustic candidates are fully invisible to the user
 - random typing/tapping candidates are now invisible on the OLED unless a real command is accepted
 - increased pre-roll to 500 ms, shortened the acoustic candidate delay, and removed 4x PCM gain to reduce wake-word clipping/distortion
 
