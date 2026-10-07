@@ -28,6 +28,9 @@ The following features are physically working now:
 - deterministic local time-intent parsing on the Pi
 - local `whisper.cpp` installation and benchmark on the Raspberry Pi
 - physical Raspberry Pi -> C3 -> OLED time command proven end-to-end
+- authenticated in-memory voice WAV endpoint on the Pi
+- localhost-only whisper.cpp HTTP service for transient command transcription
+- microphone voice path requires an explicit `Emi` wake address before executing an intent
 
 The next active implementation target is the privacy-preserving microphone path: C3 RAM -> Wi-Fi -> Pi RAM -> local Whisper, with raw audio never written to disk.
 
