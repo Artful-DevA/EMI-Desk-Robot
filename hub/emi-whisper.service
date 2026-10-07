@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=%h/whisper.cpp/build/bin/whisper-server -m %h/whisper.cpp/models/ggml-tiny.en.bin --host 127.0.0.1 --port 17841
+ExecStart=%h/whisper.cpp/build/bin/whisper-server -m %h/whisper.cpp/models/ggml-tiny.en.bin --host 127.0.0.1 --port 17841 --vad --vad-model %h/whisper.cpp/models/ggml-silero-v6.2.0.bin --vad-threshold 0.60 --vad-min-speech-duration-ms 180 --vad-min-silence-duration-ms 180 --vad-speech-pad-ms 120
 Restart=on-failure
 RestartSec=2
 NoNewPrivileges=true
