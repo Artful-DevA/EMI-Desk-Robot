@@ -2,6 +2,18 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Improve wake-word recognition and Whisper latency
+
+### Changed
+
+- EMI Hub upgraded to v0.5
+- Whisper requests now include a short prompt that biases recognition toward the proper name Emi and the current time-command phrasing
+- added exact deterministic wake aliases for common tiny.en spellings
+- disabled timestamp generation and token timestamps for command transcription
+- enabled non-speech token suppression for short voice commands
+- hub now measures Whisper request duration in milliseconds without logging the transcript
+- the VAD itself is left unchanged because the latest physical test shows it is now triggering at the correct time
+
 ## 2026-10-07 - Add isolated end-to-end voice test firmware
 
 ### Added
