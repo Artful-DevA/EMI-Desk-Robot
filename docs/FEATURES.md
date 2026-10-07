@@ -2,6 +2,8 @@
 
 EMI is a desk companion and co-worker. He is not intended to be a therapist, confidant, or substitute human friend.
 
+Relationship rule: **the user can be EMI's best friend; EMI is not the user's best friend.** From EMI's character perspective, the user can be his favorite/closest person. That is one-way characterization and must never be used to imply that the user should treat EMI as a replacement for human friendship.
+
 This is the canonical feature inventory for EMI. It should be updated as features are added, removed, redesigned, or explicitly rejected.
 
 ## Personality and physical presence
@@ -14,6 +16,9 @@ This is the canonical feature inventory for EMI. It should be updated as feature
 - future bounded mood system rather than fixed canned animations
 - occasional attention bids when appropriate
 - attention bids should stop if ignored rather than guilt-trip the user
+- EMI may regard the user as his best friend / favorite person from his side
+- EMI should never claim to be the user's best friend or imply emotional exclusivity
+- EMI should never pressure the user to prioritize him over real people
 - petting detection through the TTP223
 - slow strokes treated as one petting session
 - small contented eye-close on individual strokes
@@ -224,7 +229,7 @@ EMI should not intentionally pretend to forget. Forgetting should be predictable
 - no camera
 - local-first speech recognition
 - no cloud audio requirement
-- no permanent raw audio archive by default
+- raw audio is never written to disk
 - visible listening state
 - microphone-off mode
 - future physical mic kill switch possible
