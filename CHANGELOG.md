@@ -1,3 +1,12 @@
+## 2026-10-07 - Move OLED SCL off the C3 BOOT pin
+
+### Changed
+
+- moved SH1106 OLED SCL from GPIO 9 to GPIO 7 in normal ESP32-C3 firmware
+- GPIO 9 is now intentionally left free for the ESP32-C3 BOOT/download strap
+- retained the proven 8.5 dBm Wi-Fi TX-power fix
+- updated wiring and hardware documentation to match the new breadboard layout
+
 ## 2026-10-07 - Fix ESP32-C3 Super Mini Wi-Fi authentication
 
 ### Fixed
