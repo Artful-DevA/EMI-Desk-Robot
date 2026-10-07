@@ -6,6 +6,7 @@ import json
 import os
 import queue
 import re
+import time
 import uuid
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,13 +18,18 @@ SHARED_TOKEN = os.environ.get("EMI_SHARED_TOKEN", "")
 WHISPER_HOST = os.environ.get("EMI_WHISPER_HOST", "127.0.0.1")
 WHISPER_PORT = int(os.environ.get("EMI_WHISPER_PORT", "17841"))
 
+WHISPER_PROMPT = os.environ.get(
+    "EMI_WHISPER_PROMPT",
+    "Emi. Emi, what's the time? Emi, tell me the time.",
+)
+
 MAX_AUDIO_BYTES = 384000
 
 if not SHARED_TOKEN:
     raise RuntimeError("EMI_SHARED_TOKEN is required")
 
 GREETING_WORDS = {"hey", "yo", "hi", "hello", "okay", "ok"}
-WAKE_WORDS = {"emi", "emmy"}
+WAKE_WORDS = {"emi", "emmy", "emmie", "amy"}
 POLITE_WORDS = {"please", "just"}
 
 TIME_FORMS = {
@@ -141,8 +147,28 @@ def transcribe_wav_in_memory(wav_bytes: bytes) -> str:
         'Content-Disposition: form-data; name="language"\r\n'
         "\r\n"
         "en\r\n"
+        f"--{boundary}\r\n"
+        'Content-Disposition: form-data; name="prompt"\r\n'
+        "\r\n"
+        f"{WHISPER_PROMPT}\r\n"
+        f"--{boundary}\r\n"
+        'Content-Disposition: form-data; name="no_timestamps"\r\n'
+        "\r\n"
+        "true\r\n"
+        f"--{boundary}\r\n"
+        'Content-Disposition: form-data; name="token_timestamps"\r\n'
+        "\r\n"
+        "false\r\n"
+        f"--{boundary}\r\n"
+        'Content-Disposition: form-data; name="temperature"\r\n'
+        "\r\n"
+        "0.0\r\n"
+        f"--{boundary}\r\n"
+        'Content-Disposition: form-data; name="suppress_non_speech"\r\n'
+        "\r\n"
+        "true\r\n"
         f"--{boundary}--\r\n"
-    ).encode("ascii")
+    ).encode("utf-8")
 
     body = prefix + wav_bytes + fields
 
@@ -188,7 +214,7 @@ def transcribe_wav_in_memory(wav_bytes: bytes) -> str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "emi-hub/0.4"
+    server_version = "emi-hub/0.5"
 
     def _send_bytes(self, status: int, body: bytes, content_type: str):
         self.send_response(status)
@@ -260,7 +286,7 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "service": "emi-hub",
-                    "version": "0.4",
+                    "version": "0.5",
                     "whisper": (
                         f"{WHISPER_HOST}:"
                         f"{WHISPER_PORT}"
@@ -381,11 +407,24 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
+        whisper_started = time.monotonic()
+
         try:
             transcript = (
                 transcribe_wav_in_memory(
                     wav_bytes
                 )
+            )
+            whisper_ms = int(
+                (
+                    time.monotonic()
+                    - whisper_started
+                )
+                * 1000
+            )
+            print(
+                f"voice whisper_ms={whisper_ms}",
+                flush=True,
             )
         except Exception as exc:
             print(
@@ -417,6 +456,7 @@ class Handler(BaseHTTPRequestHandler):
                     "ok": False,
                     "intent": None,
                     "error": "NO_SPEECH",
+                    "whisper_ms": whisper_ms,
                 },
             )
             return
@@ -435,6 +475,7 @@ class Handler(BaseHTTPRequestHandler):
                     "ok": False,
                     "intent": None,
                     "error": "NO_WAKE_WORD",
+                    "whisper_ms": whisper_ms,
                 },
             )
             return
@@ -442,6 +483,8 @@ class Handler(BaseHTTPRequestHandler):
         result = parse_intent(
             transcript
         )
+
+        result["whisper_ms"] = whisper_ms
 
         transcript = ""
 
@@ -574,7 +617,7 @@ def main():
     )
 
     print(
-        f"emi-hub 0.4 listening on "
+        f"emi-hub 0.5 listening on "
         f"{HOST}:{PORT}",
         flush=True,
     )
