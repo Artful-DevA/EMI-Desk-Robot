@@ -2,6 +2,19 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Replace false-triggering VAD with sustained speech detection
+
+### Fixed
+
+- the additive-threshold VAD could trigger on ordinary room-noise spikes even when nobody was speaking
+- replaced single-block speech triggering with an approximately 128 ms rolling activity window
+- require three consecutive above-threshold window decisions before recording
+- made the learned noise floor fall faster when the room gets quieter but rise only very slowly, so speech does not redefine silence
+- added a separate lower release threshold and roughly half a second of quiet to end a phrase
+- added a 1.2 second post-command cooldown to avoid immediate retriggers from the previous phrase or Wi-Fi activity
+- voice capture now waits for Wi-Fi to be connected before it can trigger
+- ESP32 Serial diagnostics now classify the Pi response as TIME, no wake word, no speech, or unknown command without printing the transcript
+
 ## 2026-10-07 - Tune VAD from real microphone measurements
 
 ### Fixed
