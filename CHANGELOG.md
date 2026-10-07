@@ -2,6 +2,27 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-08 - Add dedicated local EMI keyword spotting
+
+### Changed
+
+- EMI Hub upgraded to v0.8
+- wake-word detection no longer depends on Whisper successfully spelling the name `Emi`
+- added a local sherpa-onnx open-vocabulary keyword spotter running entirely on the Raspberry Pi
+- the keyword spotter checks the in-memory WAV for the explicit EMI wake name before Whisper runs
+- if no EMI wake word is detected, the clip is rejected immediately and Whisper is skipped
+- after KWS confirms EMI, Whisper only has to recover the command words; it may return `time` without also spelling the wake word correctly
+- added a local venv/model installer for the small English int8 keyword-spotting model
+- C3 voice diagnostic v3 no longer displays LISTENING/PROCESSING for raw acoustic candidates
+- random typing/tapping candidates are now invisible on the OLED unless a real command is accepted
+- increased pre-roll to 500 ms, shortened the acoustic candidate delay, and removed 4x PCM gain to reduce wake-word clipping/distortion
+
+### Safety
+
+- raw audio remains in memory during wake detection and transcription
+- keyword spotting is deterministic and limited to explicit EMI wake variants; it does not fuzzily authorize commands
+- non-wake acoustic events are rejected before command transcription and never become robot actions
+
 ## 2026-10-08 - Add real speech VAD before Whisper transcription
 
 ### Changed
