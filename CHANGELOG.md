@@ -2,6 +2,15 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Tune VAD from real microphone measurements
+
+### Fixed
+
+- first physical voice test proved the microphone and Wi-Fi were alive but the VAD threshold was far too high
+- observed noise floor was roughly 4k-6k while live levels reached only around 7k, but the original threshold was about 12k-19k
+- changed the trigger from a 3x noise-floor multiplier to an additive margin: learned noise floor + 900, with a 4500 minimum
+- this keeps the adaptive room calibration while making normal speech capable of crossing the trigger
+
 ## 2026-10-07 - Fix voice firmware include formatting
 
 ### Fixed
