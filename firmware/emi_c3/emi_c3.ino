@@ -3,7 +3,7 @@
 #include <U8g2lib.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include "driver/i2s.h"
+#include "driver/i2s.h"\n#include "freertos/semphr.h"
 #include "secrets.h"
 
 // ============================================================
