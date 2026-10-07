@@ -2,6 +2,15 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - ESP32-C3 OLED, touch, and microphone integration test
+
+### Added
+
+- added a combined ESP32-C3 validation sketch for the OLED, TTP223 touch sensor, and I2S microphone
+- C3 test pin map uses OLED SDA GPIO8 / SCL GPIO9, touch GPIO10, and microphone SCK GPIO4 / WS GPIO5 / SD GPIO6
+- OLED shows Emi-style eyes, touch feedback, the raw microphone level, and an auto-ranging live microphone meter
+- serial output also reports touch state and microphone level for diagnostics
+
 ## 2026-10-07 - ESP32-C3 OLED validation test
 
 ### Added
