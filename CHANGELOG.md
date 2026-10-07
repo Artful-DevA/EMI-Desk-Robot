@@ -2,6 +2,29 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Add live C3 voice capture
+
+### Added
+
+- normal ESP32-C3 firmware now initializes the verified I2S microphone at 16 kHz mono
+- added a lightweight local voice-activity detector with room-noise calibration
+- keeps about 256 ms of pre-roll audio in RAM so the start of `Emi...` is not cut off
+- captures short voice commands into a RAM-only PCM/WAV buffer
+- posts captured WAV data to the authenticated EMI Hub `/device/audio` endpoint
+- added a shared HTTP mutex so command polling pauses cleanly while a voice request is being transcribed
+- added a tiny OLED listening indicator: hollow while VAD is armed, filled while capturing/transcribing
+
+### Privacy
+
+- command audio remains in RAM on the ESP32-C3
+- the ESP32 does not write microphone audio to flash or filesystem
+- the Pi-side hub already discards ordinary command transcripts after wake-word and deterministic intent parsing
+
+### Limits
+
+- v1 voice capture is intentionally capped at about 3 seconds to keep ESP32-C3 RAM usage conservative
+- this is sufficient for the first `Emi, what's the time?` test; longer reminder phrases will use a later streaming/chunking design
+
 ## 2026-10-07 - Fix Whisper service startup compatibility
 
 ### Fixed
