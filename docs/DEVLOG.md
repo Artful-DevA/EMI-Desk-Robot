@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **04:28:43 tracked so far** |
-| **Current exact session** | **ACTIVE - 02:37:55 at latest checkpoint** |
+| **Exact tracked development time** | **04:40:07 tracked so far** |
+| **Current exact session** | **ACTIVE - 02:49:19 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 02:37:55** | Work resumed after the break |
-| **Total active tracked work** | **04:28:43** | Break excluded |
+| 2 | **ACTIVE - 02:49:19** | Work resumed after the break |
+| **Total active tracked work** | **04:40:07** | Break excluded |
 
 ---
 
@@ -518,6 +518,20 @@ with a minimum threshold of 4500.
 This is based on the real microphone measurements from the physical robot rather than guessed constants.
 
 **Result:** mic input, Wi-Fi, and the backend are alive; the next flash specifically tests whether speech now reaches `Voice: speech detected.`
+
+---
+
+# 2026-10-07 - The first VAD retune was too sensitive
+
+My first threshold correction went too far in the other direction. EMI started declaring speech when nobody was speaking because a single noisy microphone block could jump above the new threshold.
+
+I replaced that simplistic trigger instead of moving the number up and down again.
+
+The new detector looks at a rolling short-term average over about 128 ms and requires several consecutive above-threshold decisions before it starts recording. I also split the start and release thresholds, made the learned room-noise floor adapt asymmetrically, wait for Wi-Fi before accepting a voice trigger, and added a cooldown after each command.
+
+I also added safe response diagnostics on the ESP32. After a voice upload it can now tell me whether the Pi matched the TIME intent, heard speech without the Emi wake word, heard no speech, or heard an unknown command. It still does not print or store the actual transcript.
+
+**Result:** this version should stop reacting to isolated noise spikes and, if the command still fails, the Serial output will identify the exact stage instead of just saying HTTP 200.
 
 ---
 
