@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **04:09:45 tracked so far** |
-| **Current exact session** | **ACTIVE - 04:09:45 at latest checkpoint** |
+| **Exact tracked development time** | **04:21:43 tracked so far** |
+| **Current exact session** | **ACTIVE - 04:21:43 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
 | **Completed exact sessions** | 0 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -28,7 +28,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Session | Exact duration | Notes |
 | --- | --- | --- |
-| 1 | ACTIVE - 04:09:45 at latest checkpoint | Exact tracking enabled; session is still running |
+| 1 | ACTIVE - 04:21:43 at latest checkpoint | Exact tracking enabled; session is still running |
 
 ## Backstory - before the tracked C3 migration session
 
@@ -384,6 +384,24 @@ After the router was forced to 2.4 GHz channel 1 with 20 MHz width, the direct A
 Research turned up a much more specific match: multiple ESP32-C3 Super Mini reports describe the same pattern—network scanning works, RSSI looks reasonable, but authentication expires—and some boards recover when Wi-Fi transmit power is reduced. The working value most often reported is around **8.5 dBm**.
 
 The standalone connection diagnostic now automatically tries 8.5, 11, 5, and 13 dBm against the exact scanned 2.4 GHz BSSID. This should tell us in one upload whether EMI's particular Super Mini has the known RF/power quirk.
+
+---
+
+## 2026-10-07 - Wi-Fi finally connects
+
+The TX-power diagnostic found the actual fix.
+
+At the default transmit-power behavior, the ESP32-C3 Super Mini repeatedly reached `AUTH_EXPIRE (2)`: it could scan the access point, identify the correct 2.4 GHz channel and BSSID, but authentication timed out.
+
+With Wi-Fi TX power set to **8.5 dBm**, the same board immediately progressed through association and DHCP:
+
+- associated with the access point
+- obtained IP `192.168.0.45`
+- remained connected on channel 1
+
+The normal EMI firmware now applies `WIFI_POWER_8_5dBm` before its network task starts. The direct 2.4 GHz AP selection and detailed disconnect diagnostics remain in place.
+
+This was not a bad SSID, bad password, missing 2.4 GHz network, or weak receive signal. It was a board-specific RF/transmit-power quirk on the ESP32-C3 Super Mini.
 
 ---
 
