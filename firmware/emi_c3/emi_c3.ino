@@ -3,6 +3,7 @@
 #include <U8g2lib.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include "driver/i2s.h"
 #include "secrets.h"
 
 // ============================================================
@@ -29,9 +30,10 @@
 // Emi closes his eyes, morphs into a large 7-segment clock,
 // holds the time briefly, then morphs back into his normal face.
 //
-// The microphone is physically connected and verified. Live speech
-// audio streaming is the next milestone. For now the C3 securely polls
-// the Pi hub for allow-listed display commands such as SHOW_TIME.
+// The microphone is physically connected and verified. Normal firmware
+// now runs a small local VAD, captures short voice commands in RAM, and
+// uploads an in-memory WAV to the Raspberry Pi for local Whisper.
+// Raw command audio is never intentionally written to disk by EMI.
 // ============================================================
 
 
@@ -65,6 +67,42 @@ struct NetworkCommand {
 QueueHandle_t networkCommandQueue = nullptr;
 
 volatile int lastWiFiDisconnectReason = -1;
+
+SemaphoreHandle_t httpMutex = nullptr;
+
+
+// ------------------------------------------------------------
+// VOICE / MICROPHONE
+// ------------------------------------------------------------
+
+static const i2s_port_t I2S_PORT = I2S_NUM_0;
+
+const int VOICE_SAMPLE_RATE = 16000;
+const int VOICE_I2S_BLOCK_SAMPLES = 256;
+const int VOICE_PRE_ROLL_SAMPLES = 4096;
+const int VOICE_MAX_SAMPLES = VOICE_SAMPLE_RATE * 3;
+const int VOICE_MIN_SAMPLES = VOICE_SAMPLE_RATE / 2;
+
+const int VOICE_CALIBRATION_BLOCKS = 75;
+const int VOICE_START_BLOCKS = 3;
+const int VOICE_END_SILENT_BLOCKS = 44;
+
+const float VOICE_THRESHOLD_MULTIPLIER = 3.0f;
+const float VOICE_THRESHOLD_OFFSET = 80.0f;
+const float VOICE_MIN_THRESHOLD = 220.0f;
+const int VOICE_PCM_GAIN = 4;
+
+int32_t voiceI2SBlock[VOICE_I2S_BLOCK_SAMPLES];
+int16_t voicePreRoll[VOICE_PRE_ROLL_SAMPLES];
+
+alignas(4) uint8_t voiceWavBuffer[
+  44 +
+  VOICE_MAX_SAMPLES * sizeof(int16_t)
+];
+
+volatile bool voiceMonitorReady = false;
+volatile bool voiceCapturing = false;
+volatile bool voiceProcessing = false;
 
 
 // ------------------------------------------------------------
