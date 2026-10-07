@@ -1,3 +1,13 @@
+## 2026-10-07 - Pin Wi-Fi connection to the visible 2.4 GHz AP
+
+### Changed
+
+- normal C3 firmware now scans for the configured SSID before each connection attempt
+- when the SSID is found, the firmware connects directly to the discovered 2.4 GHz channel and BSSID instead of leaving AP selection ambiguous
+- added Wi-Fi disconnect event logging with the underlying ESP-IDF reason code and common reason names
+- connection timeout output now includes the last disconnect reason
+- disabled Wi-Fi modem sleep while the hub connection is active to simplify connectivity debugging
+
 # Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Make Wi-Fi scan output impossible to miss
 
 ### Changed
