@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **04:11:01 tracked so far** |
-| **Current exact session** | **ACTIVE - 02:20:13 at latest checkpoint** |
+| **Exact tracked development time** | **04:28:43 tracked so far** |
+| **Current exact session** | **ACTIVE - 02:37:55 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 02:20:13** | Work resumed after the break |
-| **Total active tracked work** | **04:11:01** | Break excluded |
+| 2 | **ACTIVE - 02:37:55** | Work resumed after the break |
+| **Total active tracked work** | **04:28:43** | Break excluded |
 
 ---
 
@@ -498,6 +498,26 @@ When I went back to hand over the new voice firmware, I spotted a formatting mis
 I fixed that in the canonical firmware before flashing. The voice behavior itself did not change.
 
 **Result:** the current GitHub firmware is the corrected voice-control build I should actually flash.
+
+---
+
+# 2026-10-07 - My first live mic test exposed the VAD threshold problem
+
+I flashed the voice-enabled firmware and the important foundations worked: the microphone initialized, the C3 measured real changing audio levels, Wi-Fi connected, and the normal network path stayed alive.
+
+The voice command itself did not trigger. The Serial data made the reason obvious instead of mysterious: my learned room/noise floor was roughly in the 4k-6k range and live levels were reaching roughly 7k, while the VAD threshold was sitting around 12k-19k because I had initially multiplied the noise floor by three.
+
+That meant ordinary speech simply could not cross the threshold.
+
+I changed the VAD to use an additive margin instead of a huge multiplier. The new trigger is approximately:
+
+`learned noise floor + 900`
+
+with a minimum threshold of 4500.
+
+This is based on the real microphone measurements from the physical robot rather than guessed constants.
+
+**Result:** mic input, Wi-Fi, and the backend are alive; the next flash specifically tests whether speech now reaches `Voice: speech detected.`
 
 ---
 
