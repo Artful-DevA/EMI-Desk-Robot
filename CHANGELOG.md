@@ -1,4 +1,12 @@
-# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Fix C3 Wi-Fi connection retry loop
+# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Add C3 Wi-Fi visibility diagnostic
+
+### Added
+
+- added a standalone ESP32-C3 Wi-Fi scan sketch that does not require credentials
+- the test prints each 2.4 GHz SSID the C3 can actually see, along with RSSI, channel, and encryption mode
+- intended to distinguish a router/radio visibility problem from an authentication or password problem
+
+## 2026-10-07 - Fix C3 Wi-Fi connection retry loop
 
 ### Fixed
 
