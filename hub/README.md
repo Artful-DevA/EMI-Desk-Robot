@@ -174,7 +174,7 @@ Examples include:
 - `Yo Emi time`
 - `Hey Emi, could you tell me the time?`
 
-For the voice endpoint, the transcript must contain the wake address `Emi` after any simple greeting. Background speech such as `"what time is it?"` by itself does not trigger a command.
+For the voice endpoint, the transcript must contain the wake address `Emi` after any simple greeting. The exact alias `Emmy` is also accepted because Whisper may use that spelling for the spoken name. Background speech such as `"what time is it?"` by itself does not trigger a command.
 
 ## Security boundary
 
