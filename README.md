@@ -44,6 +44,7 @@ Planned:
 - `docs/WIRING.md` - exact current wiring
 - `docs/SETUP.md` - Arduino IDE setup and upload instructions
 - `docs/HARDWARE.md` - parts and power notes
+- `docs/FEATURES.md` - canonical full feature inventory and design direction
 - `docs/CONNECTIVITY.md` - desktop, laptop, phone, Wi-Fi, and travel architecture
 - `docs/SECURITY.md` - privacy and desktop-control design
 - `docs/ROADMAP.md` - development roadmap
