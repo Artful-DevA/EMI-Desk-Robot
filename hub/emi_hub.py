@@ -23,6 +23,7 @@ if not SHARED_TOKEN:
     raise RuntimeError("EMI_SHARED_TOKEN is required")
 
 GREETING_WORDS = {"hey", "yo", "hi", "hello", "okay", "ok"}
+WAKE_WORDS = {"emi", "emmy"}
 POLITE_WORDS = {"please", "just"}
 
 TIME_FORMS = {
@@ -64,7 +65,7 @@ def has_emi_wake_word(text: str) -> bool:
     while tokens and tokens[0] in GREETING_WORDS:
         tokens.pop(0)
 
-    return bool(tokens) and tokens[0] == "emi"
+    return bool(tokens) and tokens[0] in WAKE_WORDS
 
 
 def normalize_command_phrase(text: str) -> str:
@@ -74,7 +75,7 @@ def normalize_command_phrase(text: str) -> str:
     while tokens and tokens[0] in GREETING_WORDS:
         tokens.pop(0)
 
-    if tokens and tokens[0] == "emi":
+    if tokens and tokens[0] in WAKE_WORDS:
         tokens.pop(0)
 
     while tokens and tokens[0] in POLITE_WORDS:
