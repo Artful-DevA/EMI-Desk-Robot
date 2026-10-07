@@ -9,14 +9,31 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HOST = os.environ.get("EMI_HUB_HOST", "127.0.0.1")
 PORT = int(os.environ.get("EMI_HUB_PORT", "17840"))
 
-TIME_PATTERNS = [
-    re.compile(r"^(?:emi\s+)?what time is it$"),
-    re.compile(r"^(?:emi\s+)?what is the time$"),
-    re.compile(r"^(?:emi\s+)?whats the time$"),
-    re.compile(r"^(?:emi\s+)?can you tell me the time$"),
-    re.compile(r"^(?:emi\s+)?tell me the time$"),
-    re.compile(r"^(?:emi\s+)?time$"),
-]
+WAKE_WORDS = {"emi"}
+GREETING_WORDS = {"hey", "yo", "hi", "hello", "okay", "ok"}
+POLITE_WORDS = {"please", "just"}
+
+TIME_FORMS = {
+    "time",
+    "time is",
+    "what time",
+    "what time is it",
+    "what is the time",
+    "whats the time",
+    "whats time",
+    "tell me time",
+    "tell me the time",
+    "can you tell me time",
+    "can you tell me the time",
+    "could you tell me time",
+    "could you tell me the time",
+    "would you tell me time",
+    "would you tell me the time",
+    "give me time",
+    "give me the time",
+    "do you know the time",
+    "do you know what time it is",
+}
 
 
 def normalize_text(text: str) -> str:
@@ -27,19 +44,37 @@ def normalize_text(text: str) -> str:
     return text
 
 
-def parse_intent(text: str):
+def normalize_command_phrase(text: str) -> str:
     normalized = normalize_text(text)
+    tokens = normalized.split()
 
-    for pattern in TIME_PATTERNS:
-        if pattern.fullmatch(normalized):
-            now = datetime.now().astimezone()
-            hhmm = now.strftime("%H:%M")
-            return {
-                "ok": True,
-                "intent": "TIME",
-                "time": hhmm,
-                "command": f"SHOW_TIME {hhmm}",
-            }
+    while tokens and tokens[0] in GREETING_WORDS:
+        tokens.pop(0)
+
+    if tokens and tokens[0] in WAKE_WORDS:
+        tokens.pop(0)
+
+    while tokens and tokens[0] in POLITE_WORDS:
+        tokens.pop(0)
+
+    while tokens and tokens[-1] in POLITE_WORDS:
+        tokens.pop()
+
+    return " ".join(tokens)
+
+
+def parse_intent(text: str):
+    command_phrase = normalize_command_phrase(text)
+
+    if command_phrase in TIME_FORMS:
+        now = datetime.now().astimezone()
+        hhmm = now.strftime("%H:%M")
+        return {
+            "ok": True,
+            "intent": "TIME",
+            "time": hhmm,
+            "command": f"SHOW_TIME {hhmm}",
+        }
 
     return {
         "ok": False,
@@ -49,7 +84,7 @@ def parse_intent(text: str):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "emi-hub/0.1"
+    server_version = "emi-hub/0.2"
 
     def _send_json(self, status: int, payload):
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
@@ -66,7 +101,7 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "service": "emi-hub",
-                    "version": "0.1",
+                    "version": "0.2",
                 },
             )
             return
@@ -120,7 +155,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"emi-hub 0.1 listening on {HOST}:{PORT}", flush=True)
+    print(f"emi-hub 0.2 listening on {HOST}:{PORT}", flush=True)
 
     try:
         server.serve_forever()
