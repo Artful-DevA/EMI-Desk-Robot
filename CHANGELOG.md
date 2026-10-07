@@ -1,3 +1,19 @@
+# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Normal Emi moved to ESP32-C3
+
+### Added
+
+- added the normal everyday Emi firmware for the ESP32-C3 Super Mini at `firmware/emi_c3/emi_c3.ino`
+- preserved the established smooth eye, gaze, blink, idle-personality, attention-bid, and petting behavior
+- applied the verified C3 pin map: OLED GPIO8/9, touch GPIO10, microphone GPIO4/5/6
+- set OLED contrast to 100 for a softer daytime brightness
+- kept the verified microphone connected in the hardware map without adding diagnostic overlays or microphone UI to normal Emi
+
+### Documentation
+
+- promoted the ESP32-C3 OLED/touch/microphone pin map from conceptual to physically verified
+- retained the previous ESP32 DevKit V1 map only as prototype reference
+- marked the ESP32-C3 Super Mini as the current prototype controller
+
 # Changelog
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
