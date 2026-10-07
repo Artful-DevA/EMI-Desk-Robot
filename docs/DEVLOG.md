@@ -6,31 +6,32 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 ## Project stats
 
-Stats Are Currently Broken
+The previous running total became inaccurate because I treated the second work period as continuously active even though additional breaks were not recorded. I am no longer publishing that inflated number as exact.
+
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **08:19:24 tracked so far** |
-| **Current exact session** | **ACTIVE - 06:28:36 at latest checkpoint** |
-| **Excluded break time** | **01:30:00** |
-| **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
-| **Completed exact sessions** | **1** |
+| **Verified exact tracked work** | **01:50:48** |
+| **Later work period** | **Unverified duration — additional breaks were not captured, so it is not included in an exact total** |
+| **Explicitly recorded break** | **01:30:00** |
+| **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; kept separate** |
+| **Time-tracking status** | **Needs manual reconstruction before another cumulative total is published** |
 | **Current controller** | **ESP32-C3 Super Mini** |
 | **Previous controller** | ESP32 DevKit V1 |
 | **Verified hardware** | SH1106 OLED, TTP223 touch sensor, I2S microphone |
 | **Current physical form** | Cable Engineering Edition |
-| **Current software milestone** | **Authenticated Raspberry Pi -> physical C3 command path proven end-to-end** |
+| **Current software milestone** | **Local voice-command pipeline under reliability testing** |
 | **Current UI milestone** | **Eye-aligned HH:MM clock with clean return animation** |
-| **Next major milestone** | **Stream microphone audio to the Pi in RAM and feed local Whisper** |
-| **Last updated** | 2026-10-07 |
+| **Next major milestone** | **Make short spoken commands reliable without false interaction from desk noise** |
+| **Last updated** | 2026-10-08 |
 
-## Exact session log
+## Time-tracking correction
 
-| Session | Exact active duration | Notes |
-| --- | ---: | --- |
-| 1 | **01:50:48** | First tracked work block |
-| Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 06:28:36** | Work resumed after the break |
-| **Total active tracked work** | **08:19:24** | Break excluded |
+| Block | Status | Notes |
+| --- | --- | --- |
+| Session 1 | **01:50:48 verified** | First tracked work block |
+| Recorded break | **01:30:00 excluded** | Explicitly reported break |
+| Session 2 | **Duration not trustworthy** | The prior counter assumed uninterrupted work and missed additional breaks |
+| **Published exact total** | **01:50:48 verified only** | No cumulative total will include Session 2 until it is reconstructed from reliable information |
 
 ---
 
@@ -629,6 +630,20 @@ The recognizer also requires both the wake token and the command token plus a mi
 Whisper stays available for later free-form reminder/timer text, but it no longer has to recognize the wake name for the basic time command.
 
 **Result:** I am narrowing the test on purpose: make "Emi time" and "Time Emi" reliable first, with no more C3 threshold changes, then expand from a known-good voice-command base.
+
+---
+
+# 2026-10-08 - I corrected the development-time log
+
+I noticed the development-time total had become obviously inflated. The mistake was in the tracking method: after the recorded break, I kept treating the second session as continuously active even though additional breaks were not explicitly captured.
+
+That made the displayed "exact" total false.
+
+I removed the inflated cumulative figure. The only exact active block I can currently defend is the first tracked session at **01:50:48**. The explicitly reported **01:30:00** break remains recorded, while the later work period is now marked unverified instead of pretending it was continuous work.
+
+I will not publish another cumulative exact total until the later period can be reconstructed from reliable timing information.
+
+**Result:** the devlog now distinguishes verified time from uncertain time instead of overstating development hours.
 
 ---
 
