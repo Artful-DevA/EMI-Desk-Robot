@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <U8g2lib.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include "secrets.h"
 
 // ============================================================
 // EMI - Normal ESP32-C3 Firmware + SHOW_TIME command
@@ -16,7 +19,8 @@
 //   MIC SD    -> GPIO 6
 //   MIC L/R   -> GND
 //
-// Serial command for the current milestone:
+// Commands can arrive from Serial or from the authenticated
+// Raspberry Pi hub connection over Wi-Fi:
 //   SHOW_TIME HH:MM
 //
 // Example:
@@ -25,9 +29,9 @@
 // Emi closes his eyes, morphs into a large 7-segment clock,
 // holds the time briefly, then morphs back into his normal face.
 //
-// The microphone is physically connected and verified, but speech
-// recognition is not wired into this build yet. The Pi will later
-// send this same SHOW_TIME command after local speech recognition.
+// The microphone is physically connected and verified. Live speech
+// audio streaming is the next milestone. For now the C3 securely polls
+// the Pi hub for allow-listed display commands such as SHOW_TIME.
 // ============================================================
 
 
@@ -43,6 +47,20 @@ const int TOUCH_PIN = 10;
 const int MIC_SCK = 4;
 const int MIC_WS = 5;
 const int MIC_SD = 6;
+
+
+// ------------------------------------------------------------
+// NETWORK
+// ------------------------------------------------------------
+
+const unsigned long HUB_POLL_MS = 250;
+const unsigned long WIFI_RETRY_MS = 5000;
+
+struct NetworkCommand {
+  char text[48];
+};
+
+QueueHandle_t networkCommandQueue = nullptr;
 
 
 // ------------------------------------------------------------
@@ -2994,6 +3012,238 @@ void updatePettingBehaviour() {
 }
 
 
+
+// ------------------------------------------------------------
+// WIFI / HUB COMMAND TRANSPORT
+// ------------------------------------------------------------
+
+void queueNetworkCommand(const String &command) {
+
+  if (
+    networkCommandQueue ==
+    nullptr
+  ) {
+
+    return;
+  }
+
+
+  NetworkCommand item = {};
+
+
+  strlcpy(
+    item.text,
+    command.c_str(),
+    sizeof(item.text)
+  );
+
+
+  xQueueSend(
+    networkCommandQueue,
+    &item,
+    0
+  );
+}
+
+
+void pollHubOnce() {
+
+  if (
+    WiFi.status() !=
+    WL_CONNECTED
+  ) {
+
+    return;
+  }
+
+
+  WiFiClient client;
+  HTTPClient http;
+
+
+  String url =
+    "http://" +
+    String(EMI_HUB_HOST) +
+    ":" +
+    String(EMI_HUB_PORT) +
+    "/device/command";
+
+
+  http.setConnectTimeout(
+    250
+  );
+
+
+  http.setTimeout(
+    300
+  );
+
+
+  if (
+    !http.begin(
+      client,
+      url
+    )
+  ) {
+
+    return;
+  }
+
+
+  http.addHeader(
+    "X-EMI-Token",
+    EMI_SHARED_TOKEN
+  );
+
+
+  int status =
+    http.GET();
+
+
+  if (
+    status ==
+    200
+  ) {
+
+    String command =
+      http.getString();
+
+
+    command.trim();
+
+
+    if (
+      command.length() >
+      0
+    ) {
+
+      queueNetworkCommand(
+        command
+      );
+    }
+  }
+
+
+  http.end();
+}
+
+
+void networkTask(
+  void *parameter
+) {
+
+  bool announcedConnection =
+    false;
+
+
+  unsigned long lastRetry =
+    0;
+
+
+  for (;;) {
+
+    unsigned long now =
+      millis();
+
+
+    if (
+      WiFi.status() !=
+      WL_CONNECTED
+    ) {
+
+      announcedConnection =
+        false;
+
+
+      if (
+        now -
+        lastRetry >=
+        WIFI_RETRY_MS
+      ) {
+
+        lastRetry =
+          now;
+
+
+        WiFi.reconnect();
+      }
+
+
+      vTaskDelay(
+        pdMS_TO_TICKS(
+          250
+        )
+      );
+
+
+      continue;
+    }
+
+
+    if (
+      !announcedConnection
+    ) {
+
+      announcedConnection =
+        true;
+
+
+      Serial.print(
+        "Wi-Fi connected. IP: "
+      );
+
+
+      Serial.println(
+        WiFi.localIP()
+      );
+    }
+
+
+    pollHubOnce();
+
+
+    vTaskDelay(
+      pdMS_TO_TICKS(
+        HUB_POLL_MS
+      )
+    );
+  }
+}
+
+
+void updateNetworkCommands() {
+
+  if (
+    networkCommandQueue ==
+    nullptr
+  ) {
+
+    return;
+  }
+
+
+  NetworkCommand item = {};
+
+
+  while (
+    xQueueReceive(
+      networkCommandQueue,
+      &item,
+      0
+    )
+    ==
+    pdTRUE
+  ) {
+
+    handleCommand(
+      String(
+        item.text
+      )
+    );
+  }
+}
+
+
 // ------------------------------------------------------------
 // SETUP
 // ------------------------------------------------------------
@@ -3022,6 +3272,46 @@ void setup() {
   pinMode(
     TOUCH_PIN,
     INPUT
+  );
+
+
+  networkCommandQueue =
+    xQueueCreate(
+      4,
+      sizeof(
+        NetworkCommand
+      )
+    );
+
+
+  WiFi.persistent(
+    false
+  );
+
+
+  WiFi.setAutoReconnect(
+    true
+  );
+
+
+  WiFi.mode(
+    WIFI_STA
+  );
+
+
+  WiFi.begin(
+    EMI_WIFI_SSID,
+    EMI_WIFI_PASSWORD
+  );
+
+
+  xTaskCreate(
+    networkTask,
+    "emi-network",
+    6144,
+    nullptr,
+    1,
+    nullptr
   );
 
 
@@ -3083,6 +3373,8 @@ void setup() {
 void loop() {
 
   updateSerialCommands();
+
+  updateNetworkCommands();
 
   updatePersonalityDrives();
 
