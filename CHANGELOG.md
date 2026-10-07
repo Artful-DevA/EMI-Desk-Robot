@@ -2,6 +2,15 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Fix Whisper service startup compatibility
+
+### Fixed
+
+- removed nonessential whisper-server startup flags so the service starts with the smallest compatible argument set
+- retained localhost-only binding and the existing tiny.en model
+- installer now waits up to 15 seconds for model startup instead of assuming one second is enough
+- installer prints full untruncated service status if whisper-server exits before becoming ready
+
 ## 2026-10-07 - Start live voice-control backend
 
 ### Added
