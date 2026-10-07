@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **03:14:17 tracked so far** |
-| **Current exact session** | **ACTIVE - 03:14:17 at latest checkpoint** |
+| **Exact tracked development time** | **03:48:24 tracked so far** |
+| **Current exact session** | **ACTIVE - 03:48:24 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
 | **Completed exact sessions** | 0 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -28,7 +28,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Session | Exact duration | Notes |
 | --- | --- | --- |
-| 1 | ACTIVE - 03:14:17 at latest checkpoint | Exact tracking enabled; session is still running |
+| 1 | ACTIVE - 03:48:24 at latest checkpoint | Exact tracking enabled; session is still running |
 
 ## Backstory - before the tracked C3 migration session
 
@@ -342,6 +342,16 @@ The recovery path is the familiar C3 manual boot sequence: hold BOOT, tap RESET,
 Device Manager shows the board as `USB Serial Device (COM10)` with **"This device is working properly."** That is useful: the USB cable/device path is alive and Windows can enumerate the C3.
 
 The failure is now narrower: `esptool` can open the COM port, but the ESP32-C3 is not answering the ROM download handshake. The next recovery attempt is to force download mode at power-up by holding BOOT while plugging USB in, then re-check which COM port Windows assigns before uploading.
+
+---
+
+## 2026-10-07 - Stop guessing about Wi-Fi
+
+The C3 could see the target SSID at about **-52 dBm** on **channel 1** with WPA2, yet normal firmware still timed out with the coarse Arduino status value `6`.
+
+Instead of continuing to guess, the normal firmware now scans for the configured SSID immediately before connecting, copies the discovered 2.4 GHz AP's channel and BSSID, and connects directly to that AP. It also listens for the underlying Wi-Fi disconnect event and prints the ESP-IDF reason code so an authentication or handshake failure is visible instead of being collapsed into `WL_DISCONNECTED`.
+
+Wi-Fi modem sleep is temporarily disabled as well, removing another variable while the Pi link is brought up.
 
 ---
 
