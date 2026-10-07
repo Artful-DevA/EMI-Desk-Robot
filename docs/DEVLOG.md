@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **03:26:31 tracked so far** |
-| **Current exact session** | **ACTIVE - 01:35:43 at latest checkpoint** |
+| **Exact tracked development time** | **03:37:52 tracked so far** |
+| **Current exact session** | **ACTIVE - 01:47:04 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 01:35:43** | Work resumed after the break |
-| **Total active tracked work** | **03:26:31** | Break excluded |
+| 2 | **ACTIVE - 01:47:04** | Work resumed after the break |
+| **Total active tracked work** | **03:37:52** | Break excluded |
 
 ---
 
@@ -410,6 +410,24 @@ That made a very noticeable difference. The clock now feels like **EMI's eyes be
 I also hit one compile error while experimenting with a standalone clock snippet because that code referenced the OLED `display` object before it had been declared. The full canonical firmware fixes this by keeping all display drawing after the global U8g2 object exists.
 
 **Result:** current clock UI is dramatically cleaner and compiles as part of the complete firmware.
+
+---
+
+# 2026-10-07 - I started the real voice-control path
+
+The time command already proved the output side, so I started connecting the input side instead of adding more fake/manual commands.
+
+I added an authenticated `/device/audio` endpoint to the Raspberry Pi hub. The endpoint accepts a short 16 kHz WAV from EMI, keeps the bytes in RAM, and forwards them to a localhost whisper.cpp server.
+
+I deliberately kept whisper.cpp's `--convert` mode disabled. The current server can decode the uploaded WAV directly from memory, which means I do not need to create temporary microphone recordings on disk.
+
+The voice path now has an extra safety gate too: a transcript arriving from the microphone must actually address **Emi** before the deterministic intent parser is allowed to execute anything. Random background speech saying something like "what time is it?" by itself should therefore be ignored.
+
+I also added a dedicated user service for the already-built `whisper-server`, bound only to localhost on port 17841 and using the existing tiny.en model.
+
+At this point the Raspberry Pi side of live voice is ready. The remaining missing piece is the C3 side: continuously read the already-validated I2S mic, detect a short spoken phrase, keep it in RAM, and POST it to `/device/audio`.
+
+**Result:** voice control is no longer just a diagram; the Pi now has a real private in-memory audio ingestion/transcription endpoint.
 
 ---
 
