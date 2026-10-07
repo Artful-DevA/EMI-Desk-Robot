@@ -24,17 +24,15 @@ POST /device/audio
         v
 EMI Hub
         |
-        | in-memory multipart request
+        | in-memory PCM
+        v
+sherpa-onnx EMI keyword spotter
+        |
+        | only if EMI wake name is detected
         v
 whisper-server on 127.0.0.1:17841
         |
-        | transient transcript
-        v
-Silero speech VAD
-        |
-        v
-exact Emi wake-word check
-        |
+        | transient command transcript
         v
 deterministic intent parser
         |
@@ -153,7 +151,7 @@ Check the hub:
 curl -s http://127.0.0.1:17840/health
 ```
 
-The response should report version `0.7` and Whisper on `127.0.0.1:17841`.
+The response should report version `0.8` and Whisper on `127.0.0.1:17841`.
 
 ## Test Whisper without EMI
 
@@ -198,3 +196,18 @@ The local whisper.cpp server now runs Silero VAD before transcription. That prov
 Wake-word gating remains deterministic rather than fuzzy. The explicit wake name may appear at the beginning, middle, or end of a supported phrase.
 
 For performance diagnostics, the hub logs only Whisper processing duration (for example `voice whisper_ms=...`), never the recognized transcript.
+
+
+## Dedicated EMI keyword spotter
+
+The current wake gate no longer depends on Whisper spelling the robot name correctly.
+
+EMI Hub first decodes the uploaded in-memory WAV with a small local sherpa-onnx keyword-spotting model configured specifically for the spoken EMI wake name. If the wake word is absent, the clip is rejected and Whisper is not called.
+
+If the wake word is present, Whisper only has to recover the command words. This allows short natural forms such as:
+
+- `Emi time`
+- `Time Emi`
+- `What's the time, Emi?`
+
+The keyword-spotting model is installed into `~/.local/share/emi-kws` and the Python runtime into `~/.local/share/emi-hub-venv`. Actual microphone WAV data is still processed in memory and is not written to disk by the EMI voice path.
