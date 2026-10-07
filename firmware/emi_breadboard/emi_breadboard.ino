@@ -2,86 +2,29 @@
 #include <Wire.h>
 #include <U8g2lib.h>
 
-// ============================================================
-// EMI - Breadboard Personality Prototype
-// ESP32 DevKit V1
-// SH1106 128x64 OLED
-// TTP223 touch sensor on GPIO 27
-//
-// Current test build:
-// - stateful idle personality
-// - occasional attention-seeking blink
-// - gentler pet-stroke eye close
-// - 10-minute miniature timer
-// - one-shot eyes -> clock -> eyes transition demo
-//
-// NOTE:
-// The clock demo intentionally shows 12:34 because real network
-// time is not connected yet. It is only testing the animation.
-// ============================================================
-
-
-// ------------------------------------------------------------
-// OLED
-// ------------------------------------------------------------
-
-U8G2_SH1106_128X64_NONAME_F_HW_I2C display(
-  U8G2_R0,
-  U8X8_PIN_NONE
-);
-
-
-// ------------------------------------------------------------
-// PINS
-// ------------------------------------------------------------
+U8G2_SH1106_128X64_NONAME_F_HW_I2C display(U8G2_R0, U8X8_PIN_NONE);
 
 const int TOUCH_PIN = 27;
 
-
-// ------------------------------------------------------------
-// EYES
-// ------------------------------------------------------------
-
 const int EYE_WIDTH = 23;
 const int EYE_HEIGHT = 31;
-
 const int LEFT_EYE_X = 24;
 const int RIGHT_EYE_X = 81;
 const int EYE_CENTER_Y = 32;
 
-
-// ------------------------------------------------------------
-// GAZE
-// ------------------------------------------------------------
-
 float gazeX = 0.0f;
 float gazeY = 0.0f;
-
 float gazeStartX = 0.0f;
 float gazeStartY = 0.0f;
-
 float gazeTargetX = 0.0f;
 float gazeTargetY = 0.0f;
-
 bool gazeMoving = false;
-
 unsigned long gazeStartTime = 0;
 unsigned long gazeDuration = 100;
 
-
-// ------------------------------------------------------------
-// PERSONALITY DRIVES
-// ------------------------------------------------------------
-
 float curiosity = 0.38f;
 float contentment = 0.25f;
-
 unsigned long lastDriveUpdate = 0;
-
-
-// ------------------------------------------------------------
-// IDLE ACTIONS
-// ------------------------------------------------------------
 
 enum IdleAction {
   IDLE_STILL = 0,
@@ -96,13 +39,7 @@ enum IdleAction {
 
 IdleAction lastIdleAction = IDLE_SETTLE;
 IdleAction previousIdleAction = IDLE_STILL;
-
 unsigned long nextIdleAction = 0;
-
-
-// ------------------------------------------------------------
-// MULTI-STAGE IDLE BEHAVIORS
-// ------------------------------------------------------------
 
 enum IdleFollowup {
   FOLLOWUP_NONE = 0,
@@ -112,37 +49,16 @@ enum IdleFollowup {
 };
 
 IdleFollowup idleFollowup = FOLLOWUP_NONE;
-
 unsigned long idleFollowupTime = 0;
 
-
-// ------------------------------------------------------------
-// BLINKING
-// ------------------------------------------------------------
-
 bool blinking = false;
-
 unsigned long blinkStartTime = 0;
-
 int blinkCloseTime = 65;
 int blinkHoldTime = 18;
 int blinkOpenTime = 95;
-
 unsigned long nextBlinkTime = 0;
-
 bool doubleBlinkPending = false;
 unsigned long secondBlinkTime = 0;
-
-
-// ------------------------------------------------------------
-// ATTENTION BID
-//
-// This is deliberately noticeable because blinking is what most
-// reliably catches your eye.
-//
-// Prototype timing is fairly short so you can test it. In final
-// EMI this should be calendar/DND aware and happen much less.
-// ------------------------------------------------------------
 
 enum AttentionBidState {
   ATTENTION_NONE = 0,
@@ -154,20 +70,13 @@ enum AttentionBidState {
 };
 
 AttentionBidState attentionState = ATTENTION_NONE;
-
 unsigned long attentionStageTime = 0;
 unsigned long nextAttentionBid = 0;
 unsigned long lastInteractionTime = 0;
 
-
-// ------------------------------------------------------------
-// TOUCH / PETTING
-// ------------------------------------------------------------
-
 bool rawTouch = false;
 bool previousRawTouch = false;
 bool stableTouch = false;
-
 unsigned long touchChangedAt = 0;
 
 const unsigned long TOUCH_DEBOUNCE = 30;
@@ -175,54 +84,21 @@ const unsigned long PET_GRACE_TIME = 2200;
 const unsigned long MIN_PAT_INTERVAL = 280;
 
 bool petting = false;
-
 unsigned long lastTouchTime = 0;
 unsigned long lastRecognizedPat = 0;
-
 int patCount = 0;
-
-
-// ------------------------------------------------------------
-// PETTING MOTION
-// ------------------------------------------------------------
-
 unsigned long nextPetDrift = 0;
 
-
-// ------------------------------------------------------------
-// GENTLE CONTENTED PARTIAL EYE-CLOSE
-// ------------------------------------------------------------
-
 bool petStrokeActive = false;
-
 unsigned long petStrokeStart = 0;
-
 const unsigned long PET_STROKE_DURATION = 360;
-
 float petStrokeMaxClosure = 0.27f;
-
-
-// ------------------------------------------------------------
-// DEEP RELAXED PET BLINK
-// ------------------------------------------------------------
 
 bool relaxedBlinkPending = false;
 bool relaxedBlinkDone = false;
 
-
-// ------------------------------------------------------------
-// 10-MINUTE MINI TIMER TEST
-// ------------------------------------------------------------
-
-const unsigned long TEST_TIMER_DURATION_MS =
-  10UL * 60UL * 1000UL;
-
+const unsigned long TEST_TIMER_DURATION_MS = 10UL * 60UL * 1000UL;
 unsigned long testTimerStart = 0;
-
-
-// ------------------------------------------------------------
-// EYES -> CLOCK -> EYES TRANSITION TEST
-// ------------------------------------------------------------
 
 enum ClockDemoState {
   CLOCK_DEMO_OFF = 0,
@@ -234,336 +110,136 @@ enum ClockDemoState {
 };
 
 ClockDemoState clockDemoState = CLOCK_DEMO_OFF;
-
 bool clockDemoDone = false;
-
 unsigned long clockDemoStart = 0;
 unsigned long clockStageStart = 0;
 
 const unsigned long CLOCK_DEMO_TRIGGER_MS = 12000;
 const unsigned long CLOCK_EYE_CLOSE_MS = 520;
-const unsigned long CLOCK_REVEAL_MS = 420;
-const unsigned long CLOCK_HOLD_MS = 2600;
-const unsigned long CLOCK_HIDE_MS = 380;
+const unsigned long CLOCK_REVEAL_MS = 480;
+const unsigned long CLOCK_HOLD_MS = 3000;
+const unsigned long CLOCK_HIDE_MS = 420;
 const unsigned long CLOCK_EYE_OPEN_MS = 560;
 
-const char CLOCK_DEMO_TEXT[] = "12:34";
+int demoClockHour = 12;
+int demoClockMinute = 34;
 
-
-// ------------------------------------------------------------
-// HELPERS
-// ------------------------------------------------------------
-
-float clampFloat(
-  float value,
-  float minimum,
-  float maximum
-) {
+float clampFloat(float value, float minimum, float maximum) {
   if (value < minimum) return minimum;
   if (value > maximum) return maximum;
-
   return value;
 }
 
-
 float smoothStep(float t) {
-  t = clampFloat(
-    t,
-    0.0f,
-    1.0f
-  );
-
-  return
-    t * t *
-    (3.0f - 2.0f * t);
+  t = clampFloat(t, 0.0f, 1.0f);
+  return t * t * (3.0f - 2.0f * t);
 }
-
-
-// ------------------------------------------------------------
-// PERSONALITY UPDATE
-// ------------------------------------------------------------
 
 void updatePersonalityDrives() {
   unsigned long now = millis();
-
-  if (
-    now - lastDriveUpdate <
-    1000
-  ) {
-    return;
-  }
+  if (now - lastDriveUpdate < 1000) return;
 
   lastDriveUpdate = now;
 
   if (petting) {
     curiosity -= 0.008f;
     contentment += 0.004f;
-  }
-  else {
+  } else {
     curiosity += 0.012f;
     contentment -= 0.0025f;
   }
 
-  curiosity =
-    clampFloat(
-      curiosity,
-      0.0f,
-      1.0f
-    );
-
-  contentment =
-    clampFloat(
-      contentment,
-      0.0f,
-      1.0f
-    );
+  curiosity = clampFloat(curiosity, 0.0f, 1.0f);
+  contentment = clampFloat(contentment, 0.0f, 1.0f);
 }
 
-
-// ------------------------------------------------------------
-// BLINK CLOSURE
-// ------------------------------------------------------------
-
 float getBlinkClosure() {
-  if (!blinking) {
-    return 0.0f;
+  if (!blinking) return 0.0f;
+
+  unsigned long elapsed = millis() - blinkStartTime;
+  unsigned long totalTime = blinkCloseTime + blinkHoldTime + blinkOpenTime;
+
+  if (elapsed < (unsigned long)blinkCloseTime) {
+    return smoothStep((float)elapsed / (float)blinkCloseTime);
   }
 
-  unsigned long elapsed =
-    millis() - blinkStartTime;
-
-  unsigned long totalTime =
-    blinkCloseTime +
-    blinkHoldTime +
-    blinkOpenTime;
-
-  if (
-    elapsed <
-    (unsigned long)blinkCloseTime
-  ) {
-    float t =
-      (float)elapsed /
-      (float)blinkCloseTime;
-
-    return smoothStep(t);
-  }
-
-  if (
-    elapsed <
-    (unsigned long)(
-      blinkCloseTime +
-      blinkHoldTime
-    )
-  ) {
+  if (elapsed < (unsigned long)(blinkCloseTime + blinkHoldTime)) {
     return 1.0f;
   }
 
   if (elapsed < totalTime) {
-    float t =
-      (float)(
-        elapsed -
-        blinkCloseTime -
-        blinkHoldTime
-      )
-      /
-      (float)blinkOpenTime;
-
-    return
-      1.0f -
-      smoothStep(t);
+    float t = (float)(elapsed - blinkCloseTime - blinkHoldTime) / (float)blinkOpenTime;
+    return 1.0f - smoothStep(t);
   }
 
   blinking = false;
-
   return 0.0f;
 }
 
-
-// ------------------------------------------------------------
-// PET STROKE CLOSURE
-// ------------------------------------------------------------
-
 float getPetStrokeClosure() {
-  if (!petStrokeActive) {
-    return 0.0f;
-  }
+  if (!petStrokeActive) return 0.0f;
 
-  unsigned long elapsed =
-    millis() - petStrokeStart;
+  unsigned long elapsed = millis() - petStrokeStart;
 
-  if (
-    elapsed >=
-    PET_STROKE_DURATION
-  ) {
+  if (elapsed >= PET_STROKE_DURATION) {
     petStrokeActive = false;
-
     return 0.0f;
   }
 
-  float t =
-    (float)elapsed /
-    (float)PET_STROKE_DURATION;
+  float t = (float)elapsed / (float)PET_STROKE_DURATION;
 
   if (t < 0.24f) {
-    float closeT =
-      t / 0.24f;
-
-    return
-      petStrokeMaxClosure *
-      smoothStep(closeT);
+    return petStrokeMaxClosure * smoothStep(t / 0.24f);
   }
 
   if (t < 0.36f) {
-    return
-      petStrokeMaxClosure;
+    return petStrokeMaxClosure;
   }
 
-  float openT =
-    (t - 0.36f) /
-    0.64f;
-
-  return
-    petStrokeMaxClosure *
-    (
-      1.0f -
-      smoothStep(openT)
-    );
+  float openT = (t - 0.36f) / 0.64f;
+  return petStrokeMaxClosure * (1.0f - smoothStep(openT));
 }
-
-
-// ------------------------------------------------------------
-// MINI TIMER
-// ------------------------------------------------------------
 
 void drawMiniTimer() {
-  if (
-    petting ||
-    clockDemoState != CLOCK_DEMO_OFF
-  ) {
-    return;
-  }
+  if (petting || clockDemoState != CLOCK_DEMO_OFF) return;
 
-  unsigned long elapsed =
-    millis() - testTimerStart;
+  unsigned long elapsed = millis() - testTimerStart;
+  unsigned long remainingMs = elapsed >= TEST_TIMER_DURATION_MS
+    ? 0
+    : TEST_TIMER_DURATION_MS - elapsed;
 
-  unsigned long remainingMs;
-
-  if (
-    elapsed >=
-    TEST_TIMER_DURATION_MS
-  ) {
-    remainingMs = 0;
-  }
-  else {
-    remainingMs =
-      TEST_TIMER_DURATION_MS -
-      elapsed;
-  }
-
-  unsigned long totalSeconds =
-    (remainingMs + 999UL) /
-    1000UL;
-
-  unsigned int minutes =
-    totalSeconds / 60UL;
-
-  unsigned int seconds =
-    totalSeconds % 60UL;
+  unsigned long totalSeconds = (remainingMs + 999UL) / 1000UL;
+  unsigned int minutes = totalSeconds / 60UL;
+  unsigned int seconds = totalSeconds % 60UL;
 
   char timerText[6];
+  snprintf(timerText, sizeof(timerText), "%02u:%02u", minutes, seconds);
 
-  snprintf(
-    timerText,
-    sizeof(timerText),
-    "%02u:%02u",
-    minutes,
-    seconds
-  );
+  display.setFont(u8g2_font_6x10_tf);
 
-  display.setFont(
-    u8g2_font_4x6_tf
-  );
-
-  int textWidth =
-    display.getStrWidth(
-      timerText
-    );
-
-  int textX =
-    127 -
-    textWidth;
+  int textWidth = display.getStrWidth(timerText);
+  int textX = 126 - textWidth;
 
   display.setDrawColor(0);
-
-  display.drawBox(
-    textX - 1,
-    0,
-    textWidth + 2,
-    8
-  );
-
+  display.drawBox(textX - 2, 0, textWidth + 4, 12);
   display.setDrawColor(1);
 
-  display.drawStr(
-    textX,
-    6,
-    timerText
-  );
+  display.drawStr(textX, 10, timerText);
 }
 
+void drawEyesWithClosure(float forcedClosure) {
+  float closure = max(forcedClosure, getBlinkClosure());
+  float petClosure = getPetStrokeClosure();
 
-// ------------------------------------------------------------
-// DRAW NORMAL EYES
-// ------------------------------------------------------------
+  if (petClosure > closure) closure = petClosure;
 
-void drawEyesWithClosure(
-  float forcedClosure
-) {
-  float closure =
-    max(
-      forcedClosure,
-      getBlinkClosure()
-    );
-
-  float petClosure =
-    getPetStrokeClosure();
-
-  if (
-    petClosure >
-    closure
-  ) {
-    closure =
-      petClosure;
-  }
-
-  int eyeHeight =
-    EYE_HEIGHT -
-    (int)(
-      closure *
-      (EYE_HEIGHT - 3)
-    );
-
-  int inward = 0;
-
-  if (petting) {
-    inward = 2;
-  }
-
-  int y =
-    EYE_CENTER_Y -
-    eyeHeight / 2 +
-    round(gazeY);
-
-  int radius =
-    min(
-      7,
-      eyeHeight / 2
-    );
+  int eyeHeight = EYE_HEIGHT - (int)(closure * (EYE_HEIGHT - 3));
+  int inward = petting ? 2 : 0;
+  int y = EYE_CENTER_Y - eyeHeight / 2 + round(gazeY);
+  int radius = min(7, eyeHeight / 2);
 
   display.drawRBox(
-    LEFT_EYE_X +
-      round(gazeX) +
-      inward,
+    LEFT_EYE_X + round(gazeX) + inward,
     y,
     EYE_WIDTH,
     eyeHeight,
@@ -571,9 +247,7 @@ void drawEyesWithClosure(
   );
 
   display.drawRBox(
-    RIGHT_EYE_X +
-      round(gazeX) -
-      inward,
+    RIGHT_EYE_X + round(gazeX) - inward,
     y,
     EYE_WIDTH,
     eyeHeight,
@@ -581,377 +255,186 @@ void drawEyesWithClosure(
   );
 }
 
+void drawLargeDemoClock() {
+  char hourText[3];
+  char minuteText[3];
 
-// ------------------------------------------------------------
-// DRAW CLOCK DEMO
-// ------------------------------------------------------------
+  snprintf(hourText, sizeof(hourText), "%02d", demoClockHour);
+  snprintf(minuteText, sizeof(minuteText), "%02d", demoClockMinute);
+
+  display.setFont(u8g2_font_logisoso24_tn);
+
+  int hourWidth = display.getStrWidth(hourText);
+  int minuteWidth = display.getStrWidth(minuteText);
+  const int colonGap = 11;
+
+  int totalWidth = hourWidth + colonGap + minuteWidth;
+  int startX = (128 - totalWidth) / 2;
+  int colonX = startX + hourWidth;
+  int minuteX = colonX + colonGap;
+  const int baselineY = 46;
+
+  display.drawStr(startX, baselineY, hourText);
+
+  display.drawBox(colonX + 4, 25, 3, 3);
+  display.drawBox(colonX + 4, 35, 3, 3);
+
+  display.drawStr(minuteX, baselineY, minuteText);
+}
 
 void drawClockDemo() {
-  unsigned long now =
-    millis();
+  unsigned long now = millis();
 
-  if (
-    clockDemoState ==
-    CLOCK_EYES_CLOSING
-  ) {
-    float t =
-      (float)(
-        now - clockStageStart
-      )
-      /
-      (float)CLOCK_EYE_CLOSE_MS;
-
-    float eased =
-      smoothStep(t);
-
-    drawEyesWithClosure(
-      eased
-    );
-
+  if (clockDemoState == CLOCK_EYES_CLOSING) {
+    float t = (float)(now - clockStageStart) / (float)CLOCK_EYE_CLOSE_MS;
+    drawEyesWithClosure(smoothStep(t));
     return;
   }
 
-
-  display.setFont(
-    u8g2_font_logisoso20_tn
-  );
-
-  int textWidth =
-    display.getStrWidth(
-      CLOCK_DEMO_TEXT
-    );
-
-  int textX =
-    (128 - textWidth) / 2;
-
-  int textY = 41;
-
-
-  if (
-    clockDemoState ==
-    CLOCK_REVEALING
-  ) {
-    float t =
-      (float)(
-        now - clockStageStart
-      )
-      /
-      (float)CLOCK_REVEAL_MS;
-
-    t =
-      clampFloat(
-        t,
-        0.0f,
-        1.0f
-      );
-
-    float eased =
-      smoothStep(t);
-
-    int halfVisible =
-      (int)(
-        (textWidth / 2 + 2) *
-        eased
-      );
-
-    int centerX = 64;
+  if (clockDemoState == CLOCK_REVEALING) {
+    float t = (float)(now - clockStageStart) / (float)CLOCK_REVEAL_MS;
+    int halfVisible = (int)(64.0f * smoothStep(t));
 
     display.setClipWindow(
-      centerX - halfVisible,
+      64 - halfVisible,
       0,
-      centerX + halfVisible,
+      64 + halfVisible,
       64
     );
 
-    display.drawStr(
-      textX,
-      textY,
-      CLOCK_DEMO_TEXT
-    );
-
+    drawLargeDemoClock();
     display.setMaxClipWindow();
-
     return;
   }
 
-
-  if (
-    clockDemoState ==
-    CLOCK_HOLDING
-  ) {
-    display.drawStr(
-      textX,
-      textY,
-      CLOCK_DEMO_TEXT
-    );
-
+  if (clockDemoState == CLOCK_HOLDING) {
+    drawLargeDemoClock();
     return;
   }
 
-
-  if (
-    clockDemoState ==
-    CLOCK_HIDING
-  ) {
-    float t =
-      (float)(
-        now - clockStageStart
-      )
-      /
-      (float)CLOCK_HIDE_MS;
-
-    t =
-      clampFloat(
-        t,
-        0.0f,
-        1.0f
-      );
-
-    float eased =
-      1.0f -
-      smoothStep(t);
-
-    int halfVisible =
-      (int)(
-        (textWidth / 2 + 2) *
-        eased
-      );
-
-    int centerX = 64;
+  if (clockDemoState == CLOCK_HIDING) {
+    float t = (float)(now - clockStageStart) / (float)CLOCK_HIDE_MS;
+    int halfVisible = (int)(64.0f * (1.0f - smoothStep(t)));
 
     if (halfVisible > 0) {
       display.setClipWindow(
-        centerX - halfVisible,
+        64 - halfVisible,
         0,
-        centerX + halfVisible,
+        64 + halfVisible,
         64
       );
 
-      display.drawStr(
-        textX,
-        textY,
-        CLOCK_DEMO_TEXT
-      );
-
+      drawLargeDemoClock();
       display.setMaxClipWindow();
     }
 
     return;
   }
 
-
-  if (
-    clockDemoState ==
-    CLOCK_EYES_OPENING
-  ) {
-    float t =
-      (float)(
-        now - clockStageStart
-      )
-      /
-      (float)CLOCK_EYE_OPEN_MS;
-
-    float eased =
-      smoothStep(t);
-
-    drawEyesWithClosure(
-      1.0f - eased
-    );
-
-    return;
+  if (clockDemoState == CLOCK_EYES_OPENING) {
+    float t = (float)(now - clockStageStart) / (float)CLOCK_EYE_OPEN_MS;
+    drawEyesWithClosure(1.0f - smoothStep(t));
   }
 }
-
-
-// ------------------------------------------------------------
-// DRAW EMI
-// ------------------------------------------------------------
 
 void drawEmi() {
   display.clearBuffer();
 
-  if (
-    clockDemoState !=
-    CLOCK_DEMO_OFF
-  ) {
+  if (clockDemoState != CLOCK_DEMO_OFF) {
     drawClockDemo();
-  }
-  else {
-    drawEyesWithClosure(
-      0.0f
-    );
-
+  } else {
+    drawEyesWithClosure(0.0f);
     drawMiniTimer();
   }
 
   display.sendBuffer();
 }
 
-
-// ------------------------------------------------------------
-// CLOCK DEMO STATE MACHINE
-// ------------------------------------------------------------
-
 void startClockDemo() {
-  clockDemoState =
-    CLOCK_EYES_CLOSING;
+  clockDemoState = CLOCK_EYES_CLOSING;
+  clockStageStart = millis();
 
-  clockStageStart =
-    millis();
-
-  idleFollowup =
-    FOLLOWUP_NONE;
-
-  attentionState =
-    ATTENTION_NONE;
-
-  gazeMoving =
-    false;
+  idleFollowup = FOLLOWUP_NONE;
+  attentionState = ATTENTION_NONE;
+  gazeMoving = false;
 
   gazeX = 0;
   gazeY = 0;
 }
 
-
 void cancelClockDemoForInteraction() {
-  if (
-    clockDemoState ==
-    CLOCK_DEMO_OFF
-  ) {
-    return;
-  }
+  if (clockDemoState == CLOCK_DEMO_OFF) return;
 
-  clockDemoState =
-    CLOCK_DEMO_OFF;
-
-  clockDemoDone =
-    true;
+  clockDemoState = CLOCK_DEMO_OFF;
+  clockDemoDone = true;
 }
 
-
 void updateClockDemo() {
-  unsigned long now =
-    millis();
+  unsigned long now = millis();
 
   if (
     !clockDemoDone &&
-    clockDemoState ==
-      CLOCK_DEMO_OFF &&
+    clockDemoState == CLOCK_DEMO_OFF &&
     !petting &&
-    now - clockDemoStart >=
-      CLOCK_DEMO_TRIGGER_MS
+    now - clockDemoStart >= CLOCK_DEMO_TRIGGER_MS
   ) {
     startClockDemo();
-
     return;
   }
 
+  if (clockDemoState == CLOCK_DEMO_OFF) return;
+
+  unsigned long elapsed = now - clockStageStart;
 
   if (
-    clockDemoState ==
-    CLOCK_DEMO_OFF
+    clockDemoState == CLOCK_EYES_CLOSING &&
+    elapsed >= CLOCK_EYE_CLOSE_MS
   ) {
+    clockDemoState = CLOCK_REVEALING;
+    clockStageStart = now;
     return;
   }
 
-
-  unsigned long elapsed =
-    now - clockStageStart;
-
-
   if (
-    clockDemoState ==
-      CLOCK_EYES_CLOSING &&
-    elapsed >=
-      CLOCK_EYE_CLOSE_MS
+    clockDemoState == CLOCK_REVEALING &&
+    elapsed >= CLOCK_REVEAL_MS
   ) {
-    clockDemoState =
-      CLOCK_REVEALING;
-
-    clockStageStart =
-      now;
-
+    clockDemoState = CLOCK_HOLDING;
+    clockStageStart = now;
     return;
   }
 
-
   if (
-    clockDemoState ==
-      CLOCK_REVEALING &&
-    elapsed >=
-      CLOCK_REVEAL_MS
+    clockDemoState == CLOCK_HOLDING &&
+    elapsed >= CLOCK_HOLD_MS
   ) {
-    clockDemoState =
-      CLOCK_HOLDING;
-
-    clockStageStart =
-      now;
-
+    clockDemoState = CLOCK_HIDING;
+    clockStageStart = now;
     return;
   }
 
-
   if (
-    clockDemoState ==
-      CLOCK_HOLDING &&
-    elapsed >=
-      CLOCK_HOLD_MS
+    clockDemoState == CLOCK_HIDING &&
+    elapsed >= CLOCK_HIDE_MS
   ) {
-    clockDemoState =
-      CLOCK_HIDING;
-
-    clockStageStart =
-      now;
-
+    clockDemoState = CLOCK_EYES_OPENING;
+    clockStageStart = now;
     return;
   }
 
-
   if (
-    clockDemoState ==
-      CLOCK_HIDING &&
-    elapsed >=
-      CLOCK_HIDE_MS
+    clockDemoState == CLOCK_EYES_OPENING &&
+    elapsed >= CLOCK_EYE_OPEN_MS
   ) {
-    clockDemoState =
-      CLOCK_EYES_OPENING;
+    clockDemoState = CLOCK_DEMO_OFF;
+    clockDemoDone = true;
 
-    clockStageStart =
-      now;
-
-    return;
-  }
-
-
-  if (
-    clockDemoState ==
-      CLOCK_EYES_OPENING &&
-    elapsed >=
-      CLOCK_EYE_OPEN_MS
-  ) {
-    clockDemoState =
-      CLOCK_DEMO_OFF;
-
-    clockDemoDone =
-      true;
-
-    nextIdleAction =
-      now + 1500;
-
+    nextIdleAction = now + 1500;
     scheduleNextBlink();
   }
 }
 
-
-// ------------------------------------------------------------
-// GAZE
-// ------------------------------------------------------------
-
-void startGaze(
-  float targetX,
-  float targetY,
-  unsigned long duration
-) {
+void startGaze(float targetX, float targetY, unsigned long duration) {
   gazeStartX = gazeX;
   gazeStartY = gazeY;
 
@@ -960,157 +443,73 @@ void startGaze(
 
   gazeStartTime = millis();
   gazeDuration = duration;
-
   gazeMoving = true;
 }
 
-
 void updateGaze() {
-  if (
-    !gazeMoving ||
-    clockDemoState != CLOCK_DEMO_OFF
-  ) {
-    return;
-  }
+  if (!gazeMoving || clockDemoState != CLOCK_DEMO_OFF) return;
 
-  unsigned long elapsed =
-    millis() -
-    gazeStartTime;
+  unsigned long elapsed = millis() - gazeStartTime;
 
-  if (
-    elapsed >=
-    gazeDuration
-  ) {
+  if (elapsed >= gazeDuration) {
     gazeX = gazeTargetX;
     gazeY = gazeTargetY;
-
     gazeMoving = false;
-
     return;
   }
 
-  float t =
-    (float)elapsed /
-    (float)gazeDuration;
+  float t = (float)elapsed / (float)gazeDuration;
+  float eased = smoothStep(t);
 
-  float eased =
-    smoothStep(t);
-
-  gazeX =
-    gazeStartX +
-    (
-      gazeTargetX -
-      gazeStartX
-    )
-    * eased;
-
-  gazeY =
-    gazeStartY +
-    (
-      gazeTargetY -
-      gazeStartY
-    )
-    * eased;
+  gazeX = gazeStartX + (gazeTargetX - gazeStartX) * eased;
+  gazeY = gazeStartY + (gazeTargetY - gazeStartY) * eased;
 }
 
-
-// ------------------------------------------------------------
-// BLINKS
-// ------------------------------------------------------------
-
 void startBlink() {
-  if (
-    blinking ||
-    clockDemoState != CLOCK_DEMO_OFF
-  ) {
-    return;
-  }
+  if (blinking || clockDemoState != CLOCK_DEMO_OFF) return;
 
   blinking = true;
-
   blinkCloseTime = 65;
   blinkHoldTime = 18;
   blinkOpenTime = 95;
+  blinkStartTime = millis();
 
-  blinkStartTime =
-    millis();
-
-  if (
-    random(100) < 2
-  ) {
+  if (random(100) < 2) {
     doubleBlinkPending = true;
-
-    secondBlinkTime =
-      millis() + 350;
+    secondBlinkTime = millis() + 350;
   }
 }
 
-
 void startAttentionBlink() {
-  if (
-    blinking ||
-    clockDemoState != CLOCK_DEMO_OFF
-  ) {
-    return;
-  }
+  if (blinking || clockDemoState != CLOCK_DEMO_OFF) return;
 
   blinking = true;
-
   blinkCloseTime = 80;
   blinkHoldTime = 28;
   blinkOpenTime = 115;
-
-  blinkStartTime =
-    millis();
+  blinkStartTime = millis();
 }
 
-
 void startRelaxedBlink() {
-  if (
-    blinking ||
-    clockDemoState != CLOCK_DEMO_OFF
-  ) {
-    return;
-  }
+  if (blinking || clockDemoState != CLOCK_DEMO_OFF) return;
 
   blinking = true;
-
   blinkCloseTime = 120;
   blinkHoldTime = 70;
   blinkOpenTime = 200;
-
-  blinkStartTime =
-    millis();
+  blinkStartTime = millis();
 }
-
 
 void scheduleNextBlink() {
-  nextBlinkTime =
-    millis()
-    + random(
-        9000,
-        18000
-      );
+  nextBlinkTime = millis() + random(9000, 18000);
 }
-
-
-// ------------------------------------------------------------
-// ATTENTION BID
-// ------------------------------------------------------------
 
 void scheduleNextAttentionBid() {
-  nextAttentionBid =
-    millis()
-    + random(
-        35000,
-        70000
-      );
+  nextAttentionBid = millis() + random(35000, 70000);
 }
 
-
 void startAttentionBid() {
-  attentionState =
-    ATTENTION_LOOK;
+  attentionState = ATTENTION_LOOK;
 
   startGaze(
     random(-2, 3),
@@ -1118,106 +517,57 @@ void startAttentionBid() {
     170
   );
 
-  attentionStageTime =
-    millis();
+  attentionStageTime = millis();
 }
 
-
 void updateAttentionBid() {
-  if (
-    petting ||
-    clockDemoState != CLOCK_DEMO_OFF
-  ) {
-    return;
-  }
+  if (petting || clockDemoState != CLOCK_DEMO_OFF) return;
 
-  unsigned long now =
-    millis();
+  unsigned long now = millis();
 
-
-  if (
-    attentionState ==
-      ATTENTION_NONE
-  ) {
+  if (attentionState == ATTENTION_NONE) {
     if (
       now >= nextAttentionBid &&
-      now - lastInteractionTime >
-        30000
+      now - lastInteractionTime > 30000
     ) {
       startAttentionBid();
     }
-
     return;
   }
 
-
-  if (
-    attentionState ==
-      ATTENTION_LOOK
-  ) {
+  if (attentionState == ATTENTION_LOOK) {
     if (!gazeMoving) {
       startAttentionBlink();
-
-      attentionState =
-        ATTENTION_FIRST_BLINK;
-
-      attentionStageTime =
-        now;
+      attentionState = ATTENTION_FIRST_BLINK;
+      attentionStageTime = now;
     }
-
     return;
   }
 
-
-  if (
-    attentionState ==
-      ATTENTION_FIRST_BLINK
-  ) {
+  if (attentionState == ATTENTION_FIRST_BLINK) {
     if (
       !blinking &&
-      now - attentionStageTime >
-        250
+      now - attentionStageTime > 250
     ) {
-      attentionState =
-        ATTENTION_PAUSE;
-
-      attentionStageTime =
-        now;
+      attentionState = ATTENTION_PAUSE;
+      attentionStageTime = now;
     }
-
     return;
   }
 
-
-  if (
-    attentionState ==
-      ATTENTION_PAUSE
-  ) {
-    if (
-      now - attentionStageTime >
-      520
-    ) {
+  if (attentionState == ATTENTION_PAUSE) {
+    if (now - attentionStageTime > 520) {
       startAttentionBlink();
-
-      attentionState =
-        ATTENTION_SECOND_BLINK;
-
-      attentionStageTime =
-        now;
+      attentionState = ATTENTION_SECOND_BLINK;
+      attentionStageTime = now;
     }
-
     return;
   }
 
-
-  if (
-    attentionState ==
-      ATTENTION_SECOND_BLINK
-  ) {
+  if (attentionState == ATTENTION_SECOND_BLINK) {
     if (
       !blinking &&
-      now - attentionStageTime >
-        250
+      now - attentionStageTime > 250
     ) {
       startGaze(
         random(-7, 8),
@@ -1225,25 +575,15 @@ void updateAttentionBid() {
         260
       );
 
-      attentionState =
-        ATTENTION_SETTLE;
-
-      attentionStageTime =
-        now;
+      attentionState = ATTENTION_SETTLE;
+      attentionStageTime = now;
     }
-
     return;
   }
 
-
-  if (
-    attentionState ==
-      ATTENTION_SETTLE
-  ) {
+  if (attentionState == ATTENTION_SETTLE) {
     if (!gazeMoving) {
-      attentionState =
-        ATTENTION_NONE;
-
+      attentionState = ATTENTION_NONE;
       scheduleNextAttentionBid();
 
       nextIdleAction =
@@ -1256,11 +596,6 @@ void updateAttentionBid() {
   }
 }
 
-
-// ------------------------------------------------------------
-// IDLE ACTION SELECTION
-// ------------------------------------------------------------
-
 IdleAction pickIdleAction() {
   int weights[IDLE_ACTION_COUNT] = {
     22,
@@ -1272,35 +607,13 @@ IdleAction pickIdleAction() {
     13
   };
 
-  weights[IDLE_CURIOUS_PEEK] +=
-    (int)(
-      curiosity * 18.0f
-    );
+  weights[IDLE_CURIOUS_PEEK] += (int)(curiosity * 18.0f);
+  weights[IDLE_WIDE_GLANCE] += (int)(curiosity * 14.0f);
+  weights[IDLE_FOCUS] += (int)(curiosity * 8.0f);
 
-  weights[IDLE_WIDE_GLANCE] +=
-    (int)(
-      curiosity * 14.0f
-    );
-
-  weights[IDLE_FOCUS] +=
-    (int)(
-      curiosity * 8.0f
-    );
-
-  weights[IDLE_STILL] +=
-    (int)(
-      contentment * 18.0f
-    );
-
-  weights[IDLE_SOFT_ATTENTION] +=
-    (int)(
-      contentment * 13.0f
-    );
-
-  weights[IDLE_SETTLE] +=
-    (int)(
-      contentment * 8.0f
-    );
+  weights[IDLE_STILL] += (int)(contentment * 18.0f);
+  weights[IDLE_SOFT_ATTENTION] += (int)(contentment * 13.0f);
+  weights[IDLE_SETTLE] += (int)(contentment * 8.0f);
 
   weights[lastIdleAction] =
     max(
@@ -1316,121 +629,52 @@ IdleAction pickIdleAction() {
 
   int totalWeight = 0;
 
-  for (
-    int i = 0;
-    i < IDLE_ACTION_COUNT;
-    i++
-  ) {
-    totalWeight +=
-      weights[i];
+  for (int i = 0; i < IDLE_ACTION_COUNT; i++) {
+    totalWeight += weights[i];
   }
 
-  int roll =
-    random(totalWeight);
+  int roll = random(totalWeight);
 
-  for (
-    int i = 0;
-    i < IDLE_ACTION_COUNT;
-    i++
-  ) {
-    if (
-      roll <
-      weights[i]
-    ) {
-      return
-        (IdleAction)i;
+  for (int i = 0; i < IDLE_ACTION_COUNT; i++) {
+    if (roll < weights[i]) {
+      return (IdleAction)i;
     }
 
-    roll -=
-      weights[i];
+    roll -= weights[i];
   }
 
-  return
-    IDLE_STILL;
+  return IDLE_STILL;
 }
 
-
-// ------------------------------------------------------------
-// RUN IDLE ACTION
-// ------------------------------------------------------------
-
 void chooseIdleAction() {
-  unsigned long now =
-    millis();
+  unsigned long now = millis();
 
-  idleFollowup =
-    FOLLOWUP_NONE;
+  idleFollowup = FOLLOWUP_NONE;
 
-  IdleAction action =
-    pickIdleAction();
+  IdleAction action = pickIdleAction();
 
-  previousIdleAction =
-    lastIdleAction;
+  previousIdleAction = lastIdleAction;
+  lastIdleAction = action;
 
-  lastIdleAction =
-    action;
-
-
-  if (
-    action ==
-    IDLE_STILL
-  ) {
-    nextIdleAction =
-      now
-      + random(
-          3800,
-          8200
-        );
-
+  if (action == IDLE_STILL) {
+    nextIdleAction = now + random(3800, 8200);
     return;
   }
 
-
-  if (
-    action ==
-    IDLE_MICRO_GLANCE
-  ) {
+  if (action == IDLE_MICRO_GLANCE) {
     startGaze(
-      clampFloat(
-        gazeX +
-        random(-3, 4),
-        -18,
-        18
-      ),
-      clampFloat(
-        gazeY +
-        random(-2, 3),
-        -13,
-        10
-      ),
-      random(
-        70,
-        115
-      )
+      clampFloat(gazeX + random(-3, 4), -18, 18),
+      clampFloat(gazeY + random(-2, 3), -13, 10),
+      random(70, 115)
     );
 
     curiosity -= 0.035f;
-
-    nextIdleAction =
-      now
-      + random(
-          2300,
-          4800
-        );
-
+    nextIdleAction = now + random(2300, 4800);
     return;
   }
 
-
-  if (
-    action ==
-    IDLE_FOCUS
-  ) {
-    unsigned long moveTime =
-      random(
-        90,
-        150
-      );
+  if (action == IDLE_FOCUS) {
+    unsigned long moveTime = random(90, 150);
 
     startGaze(
       random(-13, 14),
@@ -1438,9 +682,7 @@ void chooseIdleAction() {
       moveTime
     );
 
-    idleFollowup =
-      FOLLOWUP_TINY_CORRECTION;
-
+    idleFollowup = FOLLOWUP_TINY_CORRECTION;
     idleFollowupTime =
       now +
       moveTime +
@@ -1450,40 +692,17 @@ void chooseIdleAction() {
       );
 
     curiosity -= 0.08f;
-
-    nextIdleAction =
-      now
-      + random(
-          3800,
-          6900
-        );
-
+    nextIdleAction = now + random(3800, 6900);
     return;
   }
 
-
-  if (
-    action ==
-    IDLE_CURIOUS_PEEK
-  ) {
-    float targetX;
-
-    if (
+  if (action == IDLE_CURIOUS_PEEK) {
+    float targetX =
       random(2) == 0
-    ) {
-      targetX =
-        random(-18, -13);
-    }
-    else {
-      targetX =
-        random(13, 19);
-    }
+      ? random(-18, -13)
+      : random(13, 19);
 
-    unsigned long moveTime =
-      random(
-        80,
-        130
-      );
+    unsigned long moveTime = random(80, 130);
 
     startGaze(
       targetX,
@@ -1491,9 +710,7 @@ void chooseIdleAction() {
       moveTime
     );
 
-    idleFollowup =
-      FOLLOWUP_PEEK_SETTLE;
-
+    idleFollowup = FOLLOWUP_PEEK_SETTLE;
     idleFollowupTime =
       now +
       moveTime +
@@ -1503,40 +720,17 @@ void chooseIdleAction() {
       );
 
     curiosity -= 0.16f;
-
-    nextIdleAction =
-      now
-      + random(
-          4800,
-          7600
-        );
-
+    nextIdleAction = now + random(4800, 7600);
     return;
   }
 
-
-  if (
-    action ==
-    IDLE_WIDE_GLANCE
-  ) {
-    float targetX;
-
-    if (
+  if (action == IDLE_WIDE_GLANCE) {
+    float targetX =
       random(2) == 0
-    ) {
-      targetX =
-        random(-18, -11);
-    }
-    else {
-      targetX =
-        random(11, 19);
-    }
+      ? random(-18, -11)
+      : random(11, 19);
 
-    unsigned long moveTime =
-      random(
-        90,
-        155
-      );
+    unsigned long moveTime = random(90, 155);
 
     startGaze(
       targetX,
@@ -1544,9 +738,7 @@ void chooseIdleAction() {
       moveTime
     );
 
-    idleFollowup =
-      FOLLOWUP_RETURN_NEAR_CENTER;
-
+    idleFollowup = FOLLOWUP_RETURN_NEAR_CENTER;
     idleFollowupTime =
       now +
       moveTime +
@@ -1556,22 +748,11 @@ void chooseIdleAction() {
       );
 
     curiosity -= 0.20f;
-
-    nextIdleAction =
-      now
-      + random(
-          5000,
-          8200
-        );
-
+    nextIdleAction = now + random(5000, 8200);
     return;
   }
 
-
-  if (
-    action ==
-    IDLE_SETTLE
-  ) {
+  if (action == IDLE_SETTLE) {
     startGaze(
       random(-4, 5),
       random(-3, 4),
@@ -1581,16 +762,9 @@ void chooseIdleAction() {
       )
     );
 
-    nextIdleAction =
-      now
-      + random(
-          4300,
-          7600
-        );
-
+    nextIdleAction = now + random(4300, 7600);
     return;
   }
-
 
   startGaze(
     random(-3, 4),
@@ -1601,69 +775,25 @@ void chooseIdleAction() {
     )
   );
 
-  nextIdleAction =
-    now
-    + random(
-        4200,
-        7600
-      );
+  nextIdleAction = now + random(4200, 7600);
 }
 
-
-// ------------------------------------------------------------
-// IDLE FOLLOWUPS
-// ------------------------------------------------------------
-
 void updateIdleFollowup() {
-  if (
-    idleFollowup ==
-    FOLLOWUP_NONE
-  ) {
-    return;
-  }
+  if (idleFollowup == FOLLOWUP_NONE || gazeMoving) return;
 
-  if (gazeMoving) {
-    return;
-  }
+  unsigned long now = millis();
 
-  unsigned long now =
-    millis();
+  if (now < idleFollowupTime) return;
 
-  if (
-    now <
-    idleFollowupTime
-  ) {
-    return;
-  }
-
-  if (
-    idleFollowup ==
-    FOLLOWUP_TINY_CORRECTION
-  ) {
+  if (idleFollowup == FOLLOWUP_TINY_CORRECTION) {
     startGaze(
-      clampFloat(
-        gazeX +
-        random(-2, 3),
-        -18,
-        18
-      ),
-      clampFloat(
-        gazeY +
-        random(-1, 2),
-        -13,
-        10
-      ),
-      random(
-        65,
-        105
-      )
+      clampFloat(gazeX + random(-2, 3), -18, 18),
+      clampFloat(gazeY + random(-1, 2), -13, 10),
+      random(65, 105)
     );
   }
 
-  else if (
-    idleFollowup ==
-    FOLLOWUP_RETURN_NEAR_CENTER
-  ) {
+  else if (idleFollowup == FOLLOWUP_RETURN_NEAR_CENTER) {
     startGaze(
       random(-5, 6),
       random(-3, 4),
@@ -1674,20 +804,11 @@ void updateIdleFollowup() {
     );
   }
 
-  else if (
-    idleFollowup ==
-    FOLLOWUP_PEEK_SETTLE
-  ) {
-    float targetX;
-
-    if (gazeX < 0) {
-      targetX =
-        random(-10, -5);
-    }
-    else {
-      targetX =
-        random(5, 11);
-    }
+  else if (idleFollowup == FOLLOWUP_PEEK_SETTLE) {
+    float targetX =
+      gazeX < 0
+      ? random(-10, -5)
+      : random(5, 11);
 
     startGaze(
       targetX,
@@ -1699,34 +820,22 @@ void updateIdleFollowup() {
     );
   }
 
-  idleFollowup =
-    FOLLOWUP_NONE;
+  idleFollowup = FOLLOWUP_NONE;
 }
-
-
-// ------------------------------------------------------------
-// BEGIN PETTING
-// ------------------------------------------------------------
 
 void beginPetting() {
   cancelClockDemoForInteraction();
 
   petting = true;
-
   patCount = 0;
 
   relaxedBlinkPending = false;
   relaxedBlinkDone = false;
 
-  idleFollowup =
-    FOLLOWUP_NONE;
+  idleFollowup = FOLLOWUP_NONE;
+  attentionState = ATTENTION_NONE;
 
-  attentionState =
-    ATTENTION_NONE;
-
-  lastInteractionTime =
-    millis();
-
+  lastInteractionTime = millis();
   scheduleNextAttentionBid();
 
   startGaze(
@@ -1735,66 +844,42 @@ void beginPetting() {
     85
   );
 
-  nextPetDrift =
-    millis() + 1100;
+  nextPetDrift = millis() + 1100;
 }
 
-
-// ------------------------------------------------------------
-// ONE PET STROKE
-// ------------------------------------------------------------
-
 void reactToPat() {
-  unsigned long now =
-    millis();
+  unsigned long now = millis();
 
   if (
     lastRecognizedPat != 0 &&
-    now - lastRecognizedPat <
-    MIN_PAT_INTERVAL
+    now - lastRecognizedPat < MIN_PAT_INTERVAL
   ) {
     return;
   }
 
-  lastRecognizedPat =
-    now;
-
-  lastTouchTime =
-    now;
-
-  lastInteractionTime =
-    now;
+  lastRecognizedPat = now;
+  lastTouchTime = now;
+  lastInteractionTime = now;
 
   patCount++;
 
-  contentment +=
-    0.11f;
-
   contentment =
     clampFloat(
-      contentment,
+      contentment + 0.11f,
       0.0f,
       1.0f
     );
-
-  curiosity -=
-    0.04f;
 
   curiosity =
     clampFloat(
-      curiosity,
+      curiosity - 0.04f,
       0.0f,
       1.0f
     );
 
-  // Noticeably gentler than the previous version.
   petStrokeMaxClosure =
     0.22f +
-    min(
-      patCount,
-      5
-    )
-    * 0.012f +
+    min(patCount, 5) * 0.012f +
     contentment * 0.018f;
 
   petStrokeMaxClosure =
@@ -1805,9 +890,7 @@ void reactToPat() {
     );
 
   petStrokeActive = true;
-
-  petStrokeStart =
-    now;
+  petStrokeStart = now;
 
   if (
     patCount >= 4 &&
@@ -1817,18 +900,10 @@ void reactToPat() {
   }
 }
 
-
-// ------------------------------------------------------------
-// PETTING MOTION
-// ------------------------------------------------------------
-
 void updatePettingMotion() {
-  if (!petting) {
-    return;
-  }
+  if (!petting) return;
 
-  unsigned long now =
-    millis();
+  unsigned long now = millis();
 
   if (
     !gazeMoving &&
@@ -1844,28 +919,16 @@ void updatePettingMotion() {
       )
     );
 
-    nextPetDrift =
-      now
-      + random(
-          1700,
-          3100
-        );
+    nextPetDrift = now + random(1700, 3100);
   }
 }
 
-
-// ------------------------------------------------------------
-// END PETTING
-// ------------------------------------------------------------
-
 void endPetting() {
   petting = false;
-
   patCount = 0;
 
   relaxedBlinkPending = false;
   relaxedBlinkDone = false;
-
   petStrokeActive = false;
 
   float returnY =
@@ -1879,52 +942,27 @@ void endPetting() {
   );
 
   scheduleNextBlink();
-
   scheduleNextAttentionBid();
 
-  nextIdleAction =
-    millis()
-    + random(
-        2600,
-        5000
-      );
+  nextIdleAction = millis() + random(2600, 5000);
 }
 
-
-// ------------------------------------------------------------
-// TOUCH
-// ------------------------------------------------------------
-
 void updateTouch() {
-  unsigned long now =
-    millis();
+  unsigned long now = millis();
 
-  rawTouch =
-    digitalRead(
-      TOUCH_PIN
-    );
+  rawTouch = digitalRead(TOUCH_PIN);
 
-  if (
-    rawTouch !=
-    previousRawTouch
-  ) {
-    previousRawTouch =
-      rawTouch;
-
-    touchChangedAt =
-      now;
+  if (rawTouch != previousRawTouch) {
+    previousRawTouch = rawTouch;
+    touchChangedAt = now;
   }
 
   if (
     now - touchChangedAt >
     TOUCH_DEBOUNCE
   ) {
-    if (
-      stableTouch !=
-      rawTouch
-    ) {
-      stableTouch =
-        rawTouch;
+    if (stableTouch != rawTouch) {
+      stableTouch = rawTouch;
 
       if (stableTouch) {
         if (!petting) {
@@ -1937,8 +975,7 @@ void updateTouch() {
   }
 
   if (stableTouch) {
-    lastTouchTime =
-      now;
+    lastTouchTime = now;
   }
 
   if (
@@ -1951,11 +988,6 @@ void updateTouch() {
   }
 }
 
-
-// ------------------------------------------------------------
-// IDLE UPDATE
-// ------------------------------------------------------------
-
 void updateIdleBehaviour() {
   if (
     petting ||
@@ -1965,15 +997,13 @@ void updateIdleBehaviour() {
     return;
   }
 
-  unsigned long now =
-    millis();
+  unsigned long now = millis();
 
   updateIdleFollowup();
 
   if (
     !gazeMoving &&
-    idleFollowup ==
-      FOLLOWUP_NONE &&
+    idleFollowup == FOLLOWUP_NONE &&
     now >= nextIdleAction
   ) {
     chooseIdleAction();
@@ -1984,7 +1014,6 @@ void updateIdleBehaviour() {
     now >= nextBlinkTime
   ) {
     startBlink();
-
     scheduleNextBlink();
   }
 
@@ -1994,23 +1023,14 @@ void updateIdleBehaviour() {
     now >= secondBlinkTime
   ) {
     doubleBlinkPending = false;
-
     startBlink();
   }
 }
 
-
-// ------------------------------------------------------------
-// PETTING UPDATE
-// ------------------------------------------------------------
-
 void updatePettingBehaviour() {
-  if (!petting) {
-    return;
-  }
+  if (!petting) return;
 
-  unsigned long now =
-    millis();
+  unsigned long now = millis();
 
   updatePettingMotion();
 
@@ -2029,16 +1049,8 @@ void updatePettingBehaviour() {
   }
 }
 
-
-// ------------------------------------------------------------
-// SETUP
-// ------------------------------------------------------------
-
 void setup() {
-  Wire.begin(
-    21,
-    22
-  );
+  Wire.begin(21, 22);
 
   display.begin();
 
@@ -2054,48 +1066,30 @@ void setup() {
   gazeX = 0;
   gazeY = 0;
 
-  testTimerStart =
-    millis();
+  demoClockHour = random(0, 24);
+  demoClockMinute = random(0, 60);
 
-  clockDemoStart =
-    millis();
+  testTimerStart = millis();
+  clockDemoStart = millis();
+  lastDriveUpdate = millis();
+  lastInteractionTime = millis();
 
-  lastDriveUpdate =
-    millis();
-
-  lastInteractionTime =
-    millis();
-
-  nextIdleAction =
-    millis() + 1800;
+  nextIdleAction = millis() + 1800;
 
   scheduleNextBlink();
-
   scheduleNextAttentionBid();
 
   drawEmi();
 }
 
-
-// ------------------------------------------------------------
-// LOOP
-// ------------------------------------------------------------
-
 void loop() {
   updatePersonalityDrives();
-
   updateTouch();
-
   updateClockDemo();
-
   updateGaze();
-
   updateAttentionBid();
-
   updateIdleBehaviour();
-
   updatePettingBehaviour();
-
   drawEmi();
 
   delay(20);
