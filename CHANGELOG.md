@@ -2,6 +2,14 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - ESP32-C3 empty upload test
+
+### Added
+
+- added a minimal empty sketch for validating the ESP32-C3 Super Mini upload/reset path
+- intended for use with Arduino IDE board selection `ESP32C3 Dev Module`
+- no peripherals or pins are used in this test
+
 ## 2026-10-07 - OLED microphone meter
 
 ### Changed
