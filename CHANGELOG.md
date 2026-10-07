@@ -1,3 +1,12 @@
+## 2026-10-07 - Polish clock layout and return animation
+
+### Changed
+
+- moved the clock colon 2 pixels to the right for better optical spacing
+- removed the flat horizontal eye bars that appeared while the clock was hiding
+- eyes now return from a rounded partially-open shape instead of a 3-pixel closed line
+- retained the GPIO 7 OLED clock wiring and proven 8.5 dBm Wi-Fi TX-power fix
+
 ## 2026-10-07 - Move OLED SCL off the C3 BOOT pin
 
 ### Changed
