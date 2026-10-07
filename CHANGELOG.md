@@ -2,6 +2,23 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Privacy, memory confirmation, and meeting audio policy
+
+### Documentation
+
+- clarified that the user can be EMI's best friend, while EMI is not intended to replace the user's human friendships
+- made persistent-memory writes a two-step explicit command with mandatory "confirm save"
+- made persistent-memory deletion a two-step explicit command with mandatory "confirm delete"
+- casual phrases containing "remember" or "forget" can never modify persistent memory
+- raw microphone audio is never written to disk
+- ordinary conversations are never stored as transcripts; only explicit note mode retains text
+- note-mode Markdown can be written directly into a configured Obsidian vault
+- added class/meeting speech privacy behavior
+- when headphones are the active output during a class/meeting, EMI may speak
+- when speakers are active during a class/meeting, EMI stays silent and uses visual/text feedback
+- if the active output cannot be identified confidently, EMI defaults to silence
+- Ubuntu audio-output switching should move EMI's TTS with the system default output
+
 ## 2026-10-07 - Eye-scale clock morph
 
 ### Changed
