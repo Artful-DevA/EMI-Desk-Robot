@@ -225,7 +225,7 @@ unsigned long clockStageStart = 0;
 
 const unsigned long CLOCK_EYE_CLOSE_MS = 420;
 const unsigned long CLOCK_REVEAL_MS = 440;
-const unsigned long CLOCK_HOLD_MS = 4500;
+const unsigned long CLOCK_HOLD_MS = 2000;
 const unsigned long CLOCK_HIDE_MS = 380;
 const unsigned long CLOCK_EYE_OPEN_MS = 480;
 
