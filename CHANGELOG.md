@@ -1,3 +1,12 @@
+## 2026-10-07 - Fix ESP32-C3 Super Mini Wi-Fi authentication
+
+### Fixed
+
+- confirmed the ESP32-C3 Super Mini can connect reliably when Wi-Fi transmit power is reduced to **8.5 dBm**
+- normal EMI C3 firmware now applies `WIFI_POWER_8_5dBm` before starting the network task
+- kept the exact 2.4 GHz AP selection and disconnect diagnostics from the previous Wi-Fi debugging pass
+- this resolves repeated `AUTH_EXPIRE (2)` failures seen at the board's previous transmit-power setting
+
 ## 2026-10-07 - Add ESP32-C3 Super Mini TX-power Wi-Fi test
 
 ### Changed
