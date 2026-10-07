@@ -2,6 +2,22 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-08 - Add real speech VAD before Whisper transcription
+
+### Changed
+
+- local whisper.cpp service now enables its built-in Silero VAD using `ggml-silero-v6.2.0.bin`
+- speech gate threshold is set to 0.60 with 180 ms minimum speech and silence windows plus 120 ms speech padding
+- Whisper now gets speech-filtered segments instead of blindly transcribing every loud acoustic event
+- the installer automatically downloads the official Silero VAD model through whisper.cpp's own model downloader when it is missing
+- server startup wait increased to 20 seconds because both Whisper and VAD models now load
+
+### Why
+
+- the ESP32 energy detector can tell that a sound happened, but cannot reliably distinguish voice from typing, tapping, sniffing, or other desk noise
+- Silero VAD is now the speech-specific gate on the Pi; only after that gate does Whisper attempt transcription
+- deterministic wake-word and command checks remain unchanged after speech recognition
+
 ## 2026-10-07 - Remove prompt hallucination risk and allow wake word anywhere
 
 ### Fixed
