@@ -10,9 +10,9 @@ mkdir -p "$SERVICE_DIR"
 mkdir -p "$CONFIG_DIR"
 
 echo
-echo "Preparing local EMI keyword spotter..."
-chmod +x "$(dirname "$0")/install-kws.sh"
-"$(dirname "$0")/install-kws.sh"
+echo "Preparing local EMI command recognizer..."
+chmod +x "$(dirname "$0")/install-command-recognizer.sh"
+"$(dirname "$0")/install-command-recognizer.sh"
 
 if [ ! -f "$ENV_FILE" ]; then
   TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
