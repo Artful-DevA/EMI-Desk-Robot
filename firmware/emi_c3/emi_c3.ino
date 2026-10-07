@@ -4701,6 +4701,34 @@ void setup() {
     );
 
 
+  httpMutex =
+    xSemaphoreCreateMutex();
+
+
+  bool microphoneReady =
+    setupVoiceMicrophone();
+
+
+  if (microphoneReady) {
+
+    xTaskCreate(
+      voiceTask,
+      "emi-voice",
+      6144,
+      nullptr,
+      1,
+      nullptr
+    );
+  }
+
+  else {
+
+    Serial.println(
+      "Voice control disabled: microphone setup failed."
+    );
+  }
+
+
   WiFi.onEvent(
     onWiFiEvent
   );
@@ -4795,6 +4823,11 @@ void setup() {
   Serial.println();
   Serial.println(
     "EMI C3 ready."
+  );
+  Serial.println(
+    microphoneReady
+    ? "Voice control: ON (local VAD -> Pi Whisper)"
+    : "Voice control: OFF"
   );
   Serial.println(
     "Command: SHOW_TIME HH:MM"
