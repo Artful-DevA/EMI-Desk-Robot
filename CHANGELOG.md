@@ -2,6 +2,19 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Larger timer + random clock transition
+
+### Changed
+
+- enlarged the timer so it is readable at a glance
+- kept the timer in the top-right corner
+- removed the tiny-font rendering that could look like stray punctuation
+- clock transition now always shows a clearly visible random HH:MM test time
+- large clock draws its own colon dots
+- clock reveal/hide expands symmetrically from the center
+- feature inventory now uses the privacy principle "functional memory, not intimate memory"
+- music-learning design now favors coarse preference categories instead of permanent exact counts
+
 ## 2026-10-07 - Attention bid + clock transition test
 
 ### Changed
