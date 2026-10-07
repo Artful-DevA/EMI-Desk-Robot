@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **03:42:24 tracked so far** |
-| **Current exact session** | **ACTIVE - 01:51:36 at latest checkpoint** |
+| **Exact tracked development time** | **03:55:42 tracked so far** |
+| **Current exact session** | **ACTIVE - 02:04:54 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 01:51:36** | Work resumed after the break |
-| **Total active tracked work** | **03:42:24** | Break excluded |
+| 2 | **ACTIVE - 02:04:54** | Work resumed after the break |
+| **Total active tracked work** | **03:55:42** | Break excluded |
 
 ---
 
@@ -440,6 +440,29 @@ I reduced the service to the minimum arguments EMI actually needs right now: mod
 If the server exits early now, the installer prints the full untruncated service status, which should make any future command-line compatibility problem obvious.
 
 **Result:** the Whisper service setup is simpler and easier to diagnose before I touch the working C3 firmware.
+
+---
+
+# 2026-10-07 - I put the microphone into normal EMI firmware
+
+The Raspberry Pi side was finally proven healthy: EMI Hub v0.4 answered its health endpoint, the Whisper service stayed active, and the bundled JFK sample transcribed successfully through the local HTTP inference endpoint.
+
+With that foundation working, I moved to the real robot.
+
+The normal ESP32-C3 firmware now initializes the already-verified I2S microphone and runs a small local voice-activity detector. It calibrates against the room noise, keeps a short rolling pre-buffer in RAM so the beginning of "Emi..." is not chopped off, and records a short spoken phrase when the level rises above the adaptive threshold.
+
+The captured command stays in RAM. The C3 writes only an in-memory WAV header around that PCM data and sends it to the authenticated `/device/audio` endpoint on the Pi. There is no microphone filesystem path on the C3.
+
+I also added a shared HTTP mutex so the normal command-polling request does not collide with a voice upload. While Whisper is working, command polling simply waits; the face animation remains independent.
+
+For privacy visibility, I added a tiny status dot in the top-right of the OLED:
+
+- hollow: voice monitoring/VAD armed
+- filled: capturing or waiting for the voice request to finish
+
+The first version intentionally caps a command at about three seconds. That is enough for "Emi, what's the time?" without spending too much of the C3's RAM. Longer timer/reminder language will need a better streaming or chunked design once the first live command is proven.
+
+**Result:** the full software path for the first hands-free command now exists. The next step is to flash this firmware and tune the VAD/audio level from the real microphone if needed.
 
 ---
 
