@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 
+import hmac
 import json
 import os
+import queue
 import re
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HOST = os.environ.get("EMI_HUB_HOST", "127.0.0.1")
 PORT = int(os.environ.get("EMI_HUB_PORT", "17840"))
+SHARED_TOKEN = os.environ.get("EMI_SHARED_TOKEN", "")
 
-WAKE_WORDS = {"emi"}
+if not SHARED_TOKEN:
+    raise RuntimeError("EMI_SHARED_TOKEN is required")
+
 GREETING_WORDS = {"hey", "yo", "hi", "hello", "okay", "ok"}
 POLITE_WORDS = {"please", "just"}
 
@@ -35,6 +40,8 @@ TIME_FORMS = {
     "do you know what time it is",
 }
 
+COMMANDS = queue.Queue(maxsize=16)
+
 
 def normalize_text(text: str) -> str:
     text = text.lower().replace("’", "'")
@@ -51,7 +58,7 @@ def normalize_command_phrase(text: str) -> str:
     while tokens and tokens[0] in GREETING_WORDS:
         tokens.pop(0)
 
-    if tokens and tokens[0] in WAKE_WORDS:
+    if tokens and tokens[0] == "emi":
         tokens.pop(0)
 
     while tokens and tokens[0] in POLITE_WORDS:
@@ -83,27 +90,73 @@ def parse_intent(text: str):
     }
 
 
+def queue_command(command: str):
+    try:
+        COMMANDS.put_nowait(command)
+        return
+    except queue.Full:
+        pass
+
+    try:
+        COMMANDS.get_nowait()
+    except queue.Empty:
+        pass
+
+    COMMANDS.put_nowait(command)
+
+
 class Handler(BaseHTTPRequestHandler):
-    server_version = "emi-hub/0.2"
+    server_version = "emi-hub/0.3"
+
+    def _send_bytes(self, status: int, body: bytes, content_type: str):
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
+        if body:
+            self.wfile.write(body)
 
     def _send_json(self, status: int, payload):
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        self._send_bytes(status, body, "application/json")
+
+    def _is_loopback(self):
+        return self.client_address[0] in {"127.0.0.1", "::1"}
+
+    def _device_authorized(self):
+        supplied = self.headers.get("X-EMI-Token", "")
+        return bool(supplied) and hmac.compare_digest(supplied, SHARED_TOKEN)
 
     def do_GET(self):
         if self.path == "/health":
+            if not self._is_loopback():
+                self._send_json(403, {"ok": False, "error": "LOCAL_ONLY"})
+                return
+
             self._send_json(
                 200,
                 {
                     "ok": True,
                     "service": "emi-hub",
-                    "version": "0.2",
+                    "version": "0.3",
                 },
             )
+            return
+
+        if self.path == "/device/command":
+            if not self._device_authorized():
+                self._send_json(401, {"ok": False, "error": "UNAUTHORIZED"})
+                return
+
+            try:
+                command = COMMANDS.get_nowait()
+            except queue.Empty:
+                self._send_bytes(204, b"", "text/plain")
+                return
+
+            self._send_bytes(200, command.encode("utf-8"), "text/plain")
             return
 
         self._send_json(404, {"ok": False, "error": "NOT_FOUND"})
@@ -111,6 +164,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path != "/intent":
             self._send_json(404, {"ok": False, "error": "NOT_FOUND"})
+            return
+
+        if not self._is_loopback():
+            self._send_json(403, {"ok": False, "error": "LOCAL_ONLY"})
             return
 
         try:
@@ -140,22 +197,23 @@ class Handler(BaseHTTPRequestHandler):
         result = parse_intent(text)
 
         if result["ok"]:
+            queue_command(result["command"])
+
             # Do not log the original transcript. Ordinary commands are ephemeral.
-            print("intent=TIME matched", flush=True)
+            print("intent=TIME matched; command queued", flush=True)
             self._send_json(200, result)
         else:
             print("intent=NO_MATCH", flush=True)
             self._send_json(200, result)
 
     def log_message(self, format, *args):
-        # Suppress HTTP request logging so recognized speech text never leaks
-        # into logs through URLs or accidental debug output.
+        # Suppress request logging so recognized speech never leaks into logs.
         return
 
 
 def main():
     server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"emi-hub 0.2 listening on {HOST}:{PORT}", flush=True)
+    print(f"emi-hub 0.3 listening on {HOST}:{PORT}", flush=True)
 
     try:
         server.serve_forever()
