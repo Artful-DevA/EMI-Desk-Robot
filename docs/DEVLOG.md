@@ -6,6 +6,23 @@ The changelog records what changed in the code. This file records **what actuall
 
 Timing is approximate unless a session was explicitly timed. The goal is an honest engineering diary, not fake precision.
 
+## Project stats
+
+| Stat | Current value |
+| --- | --- |
+| **Recorded hands-on development time** | **~45 minutes** (roughly 40-50 min currently documented) |
+| **Historical work before time tracking** | Not reliably timed, so it is **not** added to the total |
+| **Tracked build sessions** | 1 |
+| **Current controller** | ESP32-C3 Super Mini |
+| **Previous controller** | ESP32 DevKit V1 |
+| **Verified hardware** | SH1106 OLED, TTP223 touch, I2S microphone |
+| **Current physical form** | Cable Engineering Edition |
+| **Current software milestone** | `SHOW_TIME HH:MM` with eyes-to-clock morph |
+| **Next major milestone** | Spoken "EMI, what time is it?" -> local STT -> `SHOW_TIME` |
+| **Last updated** | 2026-10-07 |
+
+> **Time-tracking rule:** only time that can be estimated reasonably from a real build session gets added to the recorded total. Earlier work is kept in the history but does not get fake precision retroactively.
+
 ---
 
 ## Backstory - before the tracked C3 migration session
