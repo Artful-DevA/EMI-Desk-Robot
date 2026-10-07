@@ -647,6 +647,18 @@ I will not publish another cumulative exact total until the later period can be 
 
 ---
 
+# 2026-10-08 - I made longer time phrases stop losing to filler words
+
+The constrained Vosk recognizer was a clear improvement, but I noticed a pattern: the short form "Emi time" worked much better than longer forms such as "Emi, what's the time?", and putting Emi at the end was less reliable.
+
+The problem was in my acceptance rule. I was taking the minimum confidence across every recognized word. That meant a weak filler word such as "what", "is", or "it" could reject the entire command even when the two important words, "Emmy" and "time", were recognized well.
+
+I changed the gate to score the wake token and the time token independently. I also expanded the constrained grammar in both word orders and added a short silence tail before Vosk finalizes the phrase so a wake word spoken at the very end has enough decoder context.
+
+**Result:** short and natural forms should now be much closer in reliability without weakening the rule that both EMI and the time intent must be heard.
+
+---
+
 # Current state
 
 Right now I have a real networked EMI prototype with:

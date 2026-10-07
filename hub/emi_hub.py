@@ -29,10 +29,17 @@ VOSK_MODEL_DIR = os.path.expanduser(
     )
 )
 
-VOSK_MIN_WORD_CONFIDENCE = float(
+VOSK_MIN_WAKE_CONFIDENCE = float(
     os.environ.get(
-        "EMI_VOSK_MIN_WORD_CONFIDENCE",
-        "0.55",
+        "EMI_VOSK_MIN_WAKE_CONFIDENCE",
+        "0.38",
+    )
+)
+
+VOSK_MIN_TIME_CONFIDENCE = float(
+    os.environ.get(
+        "EMI_VOSK_MIN_TIME_CONFIDENCE",
+        "0.50",
     )
 )
 
@@ -43,8 +50,16 @@ VOSK_TIME_GRAMMAR = [
     "time emmy",
     "emmy what time is it",
     "what time is it emmy",
+    "emmy what is the time",
+    "what is the time emmy",
     "emmy tell me the time",
     "tell me the time emmy",
+    "emmy give me the time",
+    "give me the time emmy",
+    "emmy do you know the time",
+    "do you know the time emmy",
+    "emmy do you know what time it is",
+    "do you know what time it is emmy",
     "[unk]",
 ]
 
@@ -159,6 +174,15 @@ def recognize_time_command(
             ]
         )
 
+    # Give phrase-final "Emi" a little clean tail to finalize.
+    recognizer.AcceptWaveform(
+        b"\x00\x00"
+        * int(
+            sample_rate
+            * 0.30
+        )
+    )
+
     payload = json.loads(
         recognizer.FinalResult()
     )
@@ -173,29 +197,46 @@ def recognize_time_command(
         [],
     )
 
-    confidences = [
-        float(
+    wake_confidence = 0.0
+    time_confidence = 0.0
+
+    for word in words:
+        if not isinstance(
+            word,
+            dict,
+        ):
+            continue
+
+        token = str(
+            word.get(
+                "word",
+                "",
+            )
+        ).lower()
+
+        confidence = float(
             word.get(
                 "conf",
                 0.0,
             )
         )
-        for word in words
-        if isinstance(
-            word,
-            dict,
-        )
-    ]
 
-    min_confidence = (
-        min(confidences)
-        if confidences
-        else 0.0
-    )
+        if token == "emmy":
+            wake_confidence = max(
+                wake_confidence,
+                confidence,
+            )
+
+        if token == "time":
+            time_confidence = max(
+                time_confidence,
+                confidence,
+            )
 
     return (
         text,
-        min_confidence,
+        wake_confidence,
+        time_confidence,
     )
 
 
@@ -363,7 +404,7 @@ def transcribe_wav_in_memory(wav_bytes: bytes) -> str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "emi-hub/0.9"
+    server_version = "emi-hub/0.10"
 
     def _send_bytes(self, status: int, body: bytes, content_type: str):
         self.send_response(status)
@@ -435,7 +476,7 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "service": "emi-hub",
-                    "version": "0.9",
+                    "version": "0.10",
                     "whisper": (
                         f"{WHISPER_HOST}:"
                         f"{WHISPER_PORT}"
@@ -560,10 +601,12 @@ class Handler(BaseHTTPRequestHandler):
         recognize_started = time.monotonic()
 
         try:
-            recognized_text, min_confidence = (
-                recognize_time_command(
-                    wav_bytes
-                )
+            (
+                recognized_text,
+                wake_confidence,
+                time_confidence,
+            ) = recognize_time_command(
+                wav_bytes
             )
 
             recognize_ms = int(
@@ -577,8 +620,10 @@ class Handler(BaseHTTPRequestHandler):
             print(
                 "voice grammar_ms="
                 f"{recognize_ms} "
-                "confidence="
-                f"{min_confidence:.2f}",
+                "wake_conf="
+                f"{wake_confidence:.2f} "
+                "time_conf="
+                f"{time_confidence:.2f}",
                 flush=True,
             )
         except Exception as exc:
@@ -609,8 +654,10 @@ class Handler(BaseHTTPRequestHandler):
             len(tokens) < 2
             or "emmy" not in tokens
             or "time" not in tokens
-            or min_confidence
-            < VOSK_MIN_WORD_CONFIDENCE
+            or wake_confidence
+            < VOSK_MIN_WAKE_CONFIDENCE
+            or time_confidence
+            < VOSK_MIN_TIME_CONFIDENCE
         ):
             print(
                 "voice=no_command",
@@ -765,7 +812,7 @@ def main():
     )
 
     print(
-        f"emi-hub 0.9 listening on "
+        f"emi-hub 0.10 listening on "
         f"{HOST}:{PORT}",
         flush=True,
     )

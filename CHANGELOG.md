@@ -2,6 +2,23 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-08 - Improve long and wake-at-end time phrases
+
+### Changed
+
+- EMI Hub upgraded to v0.10
+- expanded the constrained Vosk grammar with more natural time-request variants in both wake-first and wake-last order
+- stopped rejecting a whole phrase because one filler word such as `what`, `is`, or `it` had low confidence
+- command acceptance now scores the two words that actually matter independently: the `Emmy` acoustic wake token and `time`
+- added a short synthetic silence tail before finalizing Vosk so phrase-final `Emi` has time to decode cleanly
+- kept the requirement that both the wake token and the time token are present before any action is executed
+
+### Why
+
+- `Emi time` was working much more reliably than `Emi, what's the time?` and wake-at-end forms
+- longer phrases naturally contain more low-confidence filler words, so using the minimum confidence across every word unfairly penalized them
+- phrase-final wake words also benefit from a little decoder-finalization padding
+
 ## 2026-10-08 - Replace short EMI wake KWS with constrained Vosk commands
 
 ### Changed
