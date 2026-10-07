@@ -1,3 +1,13 @@
+## 2026-10-07 - Align clock with EMI's eyes
+
+### Changed
+
+- made the four clock digits slightly smaller so the clock reads as part of Emi's face instead of a separate full-screen UI
+- centered the hour pair on the normal left-eye position and the minute pair on the normal right-eye position
+- vertically centered the clock on Emi's normal eye line
+- re-centered the colon between both eye-aligned groups
+- kept the colon visible during the short clock hold so the display always reads clearly as `HH:MM`
+
 ## 2026-10-07 - Polish clock layout and return animation
 
 ### Changed
