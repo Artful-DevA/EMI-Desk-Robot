@@ -565,6 +565,22 @@ For latency, command transcription no longer asks Whisper for timestamps or toke
 
 ---
 
+# 2026-10-07 - Typing accidentally exposed a serious wake-word design mistake
+
+While I was only typing, EMI started showing the time. That is unacceptable: keyboard noise is not a command.
+
+The VAD was hearing the keyboard, but the more important mistake was on the Pi side. I had added a Whisper prompt containing both the name Emi and the time-command wording to improve recognition. On noisy non-speech clips, that prompt could bias tiny.en into hallucinating exactly the command I was trying to detect.
+
+I removed that prompt completely.
+
+I also changed the deterministic wake parser so the explicit wake name may appear anywhere in the phrase instead of only at the beginning. I can now naturally say things like "Time, Emi" or "What's the time, Emi?" while the hub still requires an exact wake token and a known command form.
+
+I kept fuzzy wake matching disabled.
+
+**Result:** non-speech noise no longer gets a built-in hint that can manufacture an EMI time command, and wake-word placement is more natural.
+
+---
+
 # Current state
 
 Right now I have a real networked EMI prototype with:
