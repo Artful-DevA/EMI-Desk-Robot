@@ -3,15 +3,17 @@
 #include "secrets.h"
 
 // ============================================================
-// EMI - ESP32-C3 Wi-Fi connection diagnostic
+// EMI - ESP32-C3 Super Mini Wi-Fi TX-power diagnostic
 // Board: ESP32C3 Dev Module
 //
-// IMPORTANT:
-// - Keep your existing private secrets.h beside this sketch.
-// - Do not share or commit secrets.h.
-// - This test tries a normal connection first.
-// - If that fails, it scans for the configured SSID and retries
-//   using the exact 2.4 GHz channel + BSSID that the C3 can see.
+// Uses the existing private secrets.h.
+// Nothing here hardcodes the user's SSID or password.
+//
+// Why this test exists:
+// Some ESP32-C3 Super Mini boards can scan Wi-Fi normally but fail
+// authentication with AUTH_EXPIRE at the default TX power.
+// This sketch finds the exact 2.4 GHz AP and automatically tries
+// several lower transmit-power settings.
 // ============================================================
 
 volatile int lastDisconnectReason = -1;
@@ -59,7 +61,7 @@ void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
 }
 
 bool waitForConnection(unsigned long timeoutMs) {
-  unsigned long started = millis();
+  const unsigned long started = millis();
 
   while (millis() - started < timeoutMs) {
     if (WiFi.status() == WL_CONNECTED) {
@@ -72,32 +74,13 @@ bool waitForConnection(unsigned long timeoutMs) {
   return WiFi.status() == WL_CONNECTED;
 }
 
-void printSuccess() {
-  Serial.println();
-  Serial.println("========================================");
-  Serial.println("SUCCESS: ESP32-C3 IS CONNECTED TO WI-FI");
-  Serial.println("========================================");
-
-  Serial.print("IP: ");
-  Serial.println(WiFi.localIP());
-
-  Serial.print("RSSI: ");
-  Serial.print(WiFi.RSSI());
-  Serial.println(" dBm");
-
-  Serial.print("Channel: ");
-  Serial.println(WiFi.channel());
-
-  Serial.println();
-}
-
-bool findBestTarget(
+bool findTarget(
   int32_t &channel,
   uint8_t bssid[6],
   int32_t &rssi
 ) {
   Serial.println();
-  Serial.println("Scanning for the configured SSID...");
+  Serial.println("Scanning for configured SSID...");
 
   int count = WiFi.scanNetworks(false, true);
 
@@ -111,7 +94,10 @@ bool findBestTarget(
   int32_t bestRssi = -1000;
 
   for (int i = 0; i < count; i++) {
-    if (WiFi.SSID(i) == EMI_WIFI_SSID && WiFi.RSSI(i) > bestRssi) {
+    if (
+      WiFi.SSID(i) == EMI_WIFI_SSID &&
+      WiFi.RSSI(i) > bestRssi
+    ) {
       bestIndex = i;
       bestRssi = WiFi.RSSI(i);
     }
@@ -153,6 +139,83 @@ bool findBestTarget(
   return true;
 }
 
+void printSuccess(float requestedDbm) {
+  Serial.println();
+  Serial.println("========================================");
+  Serial.println("SUCCESS: ESP32-C3 IS CONNECTED TO WI-FI");
+  Serial.println("========================================");
+
+  Serial.print("Working TX power: ");
+  Serial.print(requestedDbm, 1);
+  Serial.println(" dBm");
+
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
+
+  Serial.print("RSSI: ");
+  Serial.print(WiFi.RSSI());
+  Serial.println(" dBm");
+
+  Serial.print("Channel: ");
+  Serial.println(WiFi.channel());
+
+  Serial.println();
+  Serial.println("LEAVE THE BOARD RUNNING.");
+}
+
+bool tryPower(
+  wifi_power_t power,
+  float requestedDbm,
+  int32_t channel,
+  uint8_t bssid[6]
+) {
+  WiFi.disconnect(false, false);
+  delay(700);
+
+  lastDisconnectReason = -1;
+
+  bool powerSet = WiFi.setTxPower(power);
+
+  Serial.println();
+  Serial.println("----------------------------------------");
+  Serial.print("Trying TX power: ");
+  Serial.print(requestedDbm, 1);
+  Serial.println(" dBm");
+
+  Serial.print("WiFi.setTxPower() result: ");
+  Serial.println(powerSet ? "OK" : "FAILED");
+
+  Serial.println("Connecting to the exact scanned 2.4 GHz AP...");
+
+  WiFi.begin(
+    EMI_WIFI_SSID,
+    EMI_WIFI_PASSWORD,
+    channel,
+    bssid,
+    true
+  );
+
+  if (waitForConnection(12000)) {
+    printSuccess(requestedDbm);
+    return true;
+  }
+
+  Serial.print("FAILED at ");
+  Serial.print(requestedDbm, 1);
+  Serial.println(" dBm");
+
+  Serial.print("WiFi.status()=");
+  Serial.println((int)WiFi.status());
+
+  Serial.print("Last disconnect reason=");
+  Serial.print(lastDisconnectReason);
+  Serial.print(" (");
+  Serial.print(reasonName(lastDisconnectReason));
+  Serial.println(")");
+
+  return false;
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -165,8 +228,8 @@ void setup() {
   delay(300);
 
   Serial.println();
-  Serial.println("EMI C3 WI-FI CONNECTION TEST");
-  Serial.println("============================");
+  Serial.println("EMI C3 SUPER MINI WI-FI TX-POWER TEST");
+  Serial.println("====================================");
 
   WiFi.onEvent(onWiFiEvent);
 
@@ -178,90 +241,40 @@ void setup() {
   WiFi.disconnect(false, true);
   delay(500);
 
-  // ----------------------------------------------------------
-  // ATTEMPT 1: normal connection
-  // ----------------------------------------------------------
-
-  lastDisconnectReason = -1;
-
-  Serial.println();
-  Serial.println("ATTEMPT 1: normal Wi-Fi connection");
-  Serial.print("SSID: ");
-  Serial.println(EMI_WIFI_SSID);
-
-  WiFi.begin(
-    EMI_WIFI_SSID,
-    EMI_WIFI_PASSWORD
-  );
-
-  if (waitForConnection(15000)) {
-    printSuccess();
-    return;
-  }
-
-  Serial.println();
-  Serial.println("ATTEMPT 1 FAILED.");
-
-  Serial.print("WiFi.status()=");
-  Serial.println((int)WiFi.status());
-
-  Serial.print("Last disconnect reason=");
-  Serial.print(lastDisconnectReason);
-  Serial.print(" (");
-  Serial.print(reasonName(lastDisconnectReason));
-  Serial.println(")");
-
-  WiFi.disconnect(false, false);
-  delay(1000);
-
-  // ----------------------------------------------------------
-  // ATTEMPT 2: scan, then connect to exact visible 2.4 GHz AP
-  // ----------------------------------------------------------
-
   int32_t channel = 0;
   int32_t rssi = -1000;
   uint8_t bssid[6] = {0, 0, 0, 0, 0, 0};
 
-  if (!findBestTarget(channel, bssid, rssi)) {
+  if (!findTarget(channel, bssid, rssi)) {
     Serial.println();
-    Serial.println("TEST STOPPED: target SSID could not be found.");
+    Serial.println("STOPPED: configured SSID was not found.");
     return;
   }
 
-  lastDisconnectReason = -1;
+  // 8.5 dBm is first because this value is known to help some
+  // problematic ESP32-C3 Super Mini boards.
+  if (tryPower(WIFI_POWER_8_5dBm, 8.5f, channel, bssid)) {
+    return;
+  }
 
-  Serial.println();
-  Serial.println("ATTEMPT 2: direct connection to scanned 2.4 GHz AP");
+  if (tryPower(WIFI_POWER_11dBm, 11.0f, channel, bssid)) {
+    return;
+  }
 
-  WiFi.begin(
-    EMI_WIFI_SSID,
-    EMI_WIFI_PASSWORD,
-    channel,
-    bssid,
-    true
-  );
+  if (tryPower(WIFI_POWER_5dBm, 5.0f, channel, bssid)) {
+    return;
+  }
 
-  if (waitForConnection(20000)) {
-    printSuccess();
+  if (tryPower(WIFI_POWER_13dBm, 13.0f, channel, bssid)) {
     return;
   }
 
   Serial.println();
-  Serial.println("ATTEMPT 2 FAILED.");
-
-  Serial.print("WiFi.status()=");
-  Serial.println((int)WiFi.status());
-
-  Serial.print("Last disconnect reason=");
-  Serial.print(lastDisconnectReason);
-  Serial.print(" (");
-  Serial.print(reasonName(lastDisconnectReason));
-  Serial.println(")");
-
+  Serial.println("========================================");
+  Serial.println("ALL TX-POWER ATTEMPTS FAILED");
+  Serial.println("========================================");
   Serial.println();
-  Serial.println("========================================");
-  Serial.println("CONNECTION TEST FINISHED WITHOUT WI-FI");
-  Serial.println("========================================");
+  Serial.println("The next step is hardware/antenna diagnosis, not another password test.");
 }
 
 void loop() {
