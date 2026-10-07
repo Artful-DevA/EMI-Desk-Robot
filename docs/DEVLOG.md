@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **03:55:42 tracked so far** |
-| **Current exact session** | **ACTIVE - 02:04:54 at latest checkpoint** |
+| **Exact tracked development time** | **03:58:01 tracked so far** |
+| **Current exact session** | **ACTIVE - 02:07:13 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 02:04:54** | Work resumed after the break |
-| **Total active tracked work** | **03:55:42** | Break excluded |
+| 2 | **ACTIVE - 02:07:13** | Work resumed after the break |
+| **Total active tracked work** | **03:58:01** | Break excluded |
 
 ---
 
@@ -463,6 +463,16 @@ For privacy visibility, I added a tiny status dot in the top-right of the OLED:
 The first version intentionally caps a command at about three seconds. That is enough for "Emi, what's the time?" without spending too much of the C3's RAM. Longer timer/reminder language will need a better streaming or chunked design once the first live command is proven.
 
 **Result:** the full software path for the first hands-free command now exists. The next step is to flash this firmware and tune the VAD/audio level from the real microphone if needed.
+
+---
+
+# 2026-10-07 - I made the first voice test easier to tune
+
+Before flashing, I added low-rate Serial diagnostics for the live VAD. Once per second EMI now reports the current microphone level, learned room-noise floor, and speech trigger threshold. That means if the first test is too sensitive or not sensitive enough, I can tune it from real measurements instead of guessing.
+
+I also accounted for a likely speech-recognition detail: Whisper may spell the robot's spoken name as "Emmy" even when I mean "Emi". The hub now accepts exactly `emi` or `emmy` as wake addresses. It is still deterministic and does not use fuzzy matching.
+
+**Result:** the first spoken-command test should now tell me exactly whether a failure is VAD, upload, transcription, wake-word parsing, or the existing command path.
 
 ---
 
