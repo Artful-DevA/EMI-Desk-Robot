@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **04:04:27 tracked so far** |
-| **Current exact session** | **ACTIVE - 04:04:27 at latest checkpoint** |
+| **Exact tracked development time** | **04:09:45 tracked so far** |
+| **Current exact session** | **ACTIVE - 04:09:45 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
 | **Completed exact sessions** | 0 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -28,7 +28,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Session | Exact duration | Notes |
 | --- | --- | --- |
-| 1 | ACTIVE - 04:04:27 at latest checkpoint | Exact tracking enabled; session is still running |
+| 1 | ACTIVE - 04:09:45 at latest checkpoint | Exact tracking enabled; session is still running |
 
 ## Backstory - before the tracked C3 migration session
 
@@ -374,6 +374,16 @@ The dedicated two-stage connection test failed both the normal connection attemp
 That is much more specific than Arduino's generic `WL_DISCONNECTED` status. The C3 can scan the target AP at a strong signal level, but the authentication exchange itself is timing out before WPA2 key negotiation completes.
 
 The next troubleshooting target is the 2.4 GHz access-point configuration rather than EMI's application firmware.
+
+---
+
+## 2026-10-07 - C3 Super Mini TX-power suspicion
+
+After the router was forced to 2.4 GHz channel 1 with 20 MHz width, the direct AP test still failed with `AUTH_EXPIRE (2)`. That made the router-channel theory much less convincing.
+
+Research turned up a much more specific match: multiple ESP32-C3 Super Mini reports describe the same pattern—network scanning works, RSSI looks reasonable, but authentication expires—and some boards recover when Wi-Fi transmit power is reduced. The working value most often reported is around **8.5 dBm**.
+
+The standalone connection diagnostic now automatically tries 8.5, 11, 5, and 13 dBm against the exact scanned 2.4 GHz BSSID. This should tell us in one upload whether EMI's particular Super Mini has the known RF/power quirk.
 
 ---
 
