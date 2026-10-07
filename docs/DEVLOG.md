@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **03:53:41 tracked so far** |
-| **Current exact session** | **ACTIVE - 03:53:41 at latest checkpoint** |
+| **Exact tracked development time** | **04:04:27 tracked so far** |
+| **Current exact session** | **ACTIVE - 04:04:27 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
 | **Completed exact sessions** | 0 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -28,7 +28,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Session | Exact duration | Notes |
 | --- | --- | --- |
-| 1 | ACTIVE - 03:53:41 at latest checkpoint | Exact tracking enabled; session is still running |
+| 1 | ACTIVE - 04:04:27 at latest checkpoint | Exact tracking enabled; session is still running |
 
 ## Backstory - before the tracked C3 migration session
 
@@ -362,6 +362,18 @@ The radio scan proved the configured network is visible, but the full firmware s
 It uses the existing private `secrets.h`, first attempts a normal WPA2 connection, and then—only if needed—scans again and retries against the exact visible 2.4 GHz channel and BSSID. Both attempts record the underlying disconnect reason from the Wi-Fi event callback.
 
 No real SSID or password is hardcoded in the public test.
+
+---
+
+## 2026-10-07 - Authentication timeout confirmed on both paths
+
+The dedicated two-stage connection test failed both the normal connection attempt and the direct BSSID/channel attempt with the same ESP-IDF reason:
+
+`AUTH_EXPIRE (2)`
+
+That is much more specific than Arduino's generic `WL_DISCONNECTED` status. The C3 can scan the target AP at a strong signal level, but the authentication exchange itself is timing out before WPA2 key negotiation completes.
+
+The next troubleshooting target is the 2.4 GHz access-point configuration rather than EMI's application firmware.
 
 ---
 
