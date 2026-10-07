@@ -105,13 +105,17 @@ Forgetting should mean deletion from active memory, not pretending to forget.
 
 Memory-changing voice commands must be deliberately high-friction and unambiguous. The words "remember" and "forget" by themselves are never enough to modify persistent memory. Casual speech such as "EMI, remember that one time..." must be treated as ordinary conversation.
 
-Recommended command pattern:
+Required command protocol:
 
-- write: "EMI, store the following as a persistent memory: ..."
-- delete: "EMI, permanently delete the following memory: ..."
-- require a confirmation step before committing either operation
-- a confirmation should itself be explicit, e.g. "confirm save" or "confirm delete"
-- no fuzzy intent classification should be allowed to trigger memory writes or deletes
+- write request: "EMI, store the following as a persistent memory: ..."
+- EMI must ask for confirmation and must not write anything yet
+- commit only after the separate phrase "confirm save"
+- delete request: "EMI, permanently delete the following memory: ..."
+- EMI must ask for confirmation and must not delete anything yet
+- commit only after the separate phrase "confirm delete"
+- if the confirmation is missing, ambiguous, interrupted, or times out, cancel the operation with no persistent-memory change
+- "yes", "okay", "sure", or casual agreement are not sufficient confirmation
+- no fuzzy intent classification may trigger memory writes, memory deletes, or their confirmation step
 
 When the user asks EMI to forget something:
 
@@ -132,7 +136,7 @@ Suggested design:
 - tasks/calendar cache: small and prunable
 - transcripts: separate storage with explicit retention rules
 - project/repository indexes: separate disposable cache
-- raw audio: not retained by default
+- raw audio: never written to disk
 - no embedding/vector database unless a later feature truly needs it
 
 SQLite text records are tiny; audio and duplicated repository data are what would grow storage quickly.
