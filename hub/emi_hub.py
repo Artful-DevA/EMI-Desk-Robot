@@ -18,10 +18,6 @@ SHARED_TOKEN = os.environ.get("EMI_SHARED_TOKEN", "")
 WHISPER_HOST = os.environ.get("EMI_WHISPER_HOST", "127.0.0.1")
 WHISPER_PORT = int(os.environ.get("EMI_WHISPER_PORT", "17841"))
 
-WHISPER_PROMPT = os.environ.get(
-    "EMI_WHISPER_PROMPT",
-    "Emi. Emi, what's the time? Emi, tell me the time.",
-)
 
 MAX_AUDIO_BYTES = 384000
 
@@ -159,10 +155,6 @@ def transcribe_wav_in_memory(wav_bytes: bytes) -> str:
         "\r\n"
         "en\r\n"
         f"--{boundary}\r\n"
-        'Content-Disposition: form-data; name="prompt"\r\n'
-        "\r\n"
-        f"{WHISPER_PROMPT}\r\n"
-        f"--{boundary}\r\n"
         'Content-Disposition: form-data; name="no_timestamps"\r\n'
         "\r\n"
         "true\r\n"
@@ -225,7 +217,7 @@ def transcribe_wav_in_memory(wav_bytes: bytes) -> str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "emi-hub/0.6"
+    server_version = "emi-hub/0.7"
 
     def _send_bytes(self, status: int, body: bytes, content_type: str):
         self.send_response(status)
@@ -297,7 +289,7 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "service": "emi-hub",
-                    "version": "0.6",
+                    "version": "0.7",
                     "whisper": (
                         f"{WHISPER_HOST}:"
                         f"{WHISPER_PORT}"
@@ -628,7 +620,7 @@ def main():
     )
 
     print(
-        f"emi-hub 0.6 listening on "
+        f"emi-hub 0.7 listening on "
         f"{HOST}:{PORT}",
         flush=True,
     )
