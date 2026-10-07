@@ -63,6 +63,8 @@ struct NetworkCommand {
 
 QueueHandle_t networkCommandQueue = nullptr;
 
+volatile int lastWiFiDisconnectReason = -1;
+
 
 // ------------------------------------------------------------
 // OLED
@@ -3018,6 +3020,265 @@ void updatePettingBehaviour() {
 // WIFI / HUB COMMAND TRANSPORT
 // ------------------------------------------------------------
 
+const char* wifiReasonName(int reason) {
+  switch (reason) {
+    case 2:   return "AUTH_EXPIRE";
+    case 3:   return "AUTH_LEAVE";
+    case 4:   return "ASSOC_EXPIRE";
+    case 5:   return "ASSOC_TOOMANY";
+    case 6:   return "NOT_AUTHED";
+    case 7:   return "NOT_ASSOCED";
+    case 8:   return "ASSOC_LEAVE";
+    case 15:  return "4WAY_HANDSHAKE_TIMEOUT";
+    case 200: return "BEACON_TIMEOUT";
+    case 201: return "NO_AP_FOUND";
+    case 202: return "AUTH_FAIL";
+    case 203: return "ASSOC_FAIL";
+    case 204: return "HANDSHAKE_TIMEOUT";
+    default:  return "OTHER";
+  }
+}
+
+
+void onWiFiEvent(
+  WiFiEvent_t event,
+  WiFiEventInfo_t info
+) {
+
+  if (
+    event ==
+    ARDUINO_EVENT_WIFI_STA_CONNECTED
+  ) {
+
+    Serial.println(
+      "Wi-Fi event: associated with access point."
+    );
+
+    return;
+  }
+
+
+  if (
+    event ==
+    ARDUINO_EVENT_WIFI_STA_GOT_IP
+  ) {
+
+    Serial.print(
+      "Wi-Fi event: got IP "
+    );
+
+    Serial.println(
+      WiFi.localIP()
+    );
+
+    return;
+  }
+
+
+  if (
+    event ==
+    ARDUINO_EVENT_WIFI_STA_DISCONNECTED
+  ) {
+
+    lastWiFiDisconnectReason =
+      info.wifi_sta_disconnected.reason;
+
+
+    Serial.print(
+      "Wi-Fi event: disconnected. reason="
+    );
+
+    Serial.print(
+      lastWiFiDisconnectReason
+    );
+
+    Serial.print(
+      " ("
+    );
+
+    Serial.print(
+      wifiReasonName(
+        lastWiFiDisconnectReason
+      )
+    );
+
+    Serial.println(
+      ")"
+    );
+  }
+}
+
+
+bool findTargetAccessPoint(
+  int32_t &channel,
+  uint8_t bssid[6],
+  int32_t &rssi
+) {
+
+  Serial.println(
+    "Wi-Fi scan: looking for configured SSID..."
+  );
+
+
+  int count =
+    WiFi.scanNetworks(
+      false,
+      true
+    );
+
+
+  if (
+    count < 0
+  ) {
+
+    Serial.print(
+      "Wi-Fi scan failed. code="
+    );
+
+    Serial.println(
+      count
+    );
+
+    return false;
+  }
+
+
+  int bestIndex =
+    -1;
+
+  int32_t bestRssi =
+    -1000;
+
+
+  for (
+    int i = 0;
+    i < count;
+    i++
+  ) {
+
+    if (
+      WiFi.SSID(i) ==
+      EMI_WIFI_SSID
+    ) {
+
+      if (
+        WiFi.RSSI(i) >
+        bestRssi
+      ) {
+
+        bestIndex =
+          i;
+
+        bestRssi =
+          WiFi.RSSI(i);
+      }
+    }
+  }
+
+
+  if (
+    bestIndex < 0
+  ) {
+
+    WiFi.scanDelete();
+
+    Serial.println(
+      "Wi-Fi scan: configured SSID not found."
+    );
+
+    return false;
+  }
+
+
+  channel =
+    WiFi.channel(
+      bestIndex
+    );
+
+  rssi =
+    WiFi.RSSI(
+      bestIndex
+    );
+
+
+  const uint8_t *foundBssid =
+    WiFi.BSSID(
+      bestIndex
+    );
+
+
+  memcpy(
+    bssid,
+    foundBssid,
+    6
+  );
+
+
+  Serial.print(
+    "Wi-Fi target found. RSSI="
+  );
+
+  Serial.print(
+    rssi
+  );
+
+  Serial.print(
+    " dBm channel="
+  );
+
+  Serial.print(
+    channel
+  );
+
+  Serial.print(
+    " BSSID="
+  );
+
+
+  for (
+    int i = 0;
+    i < 6;
+    i++
+  ) {
+
+    if (
+      i > 0
+    ) {
+
+      Serial.print(
+        ':'
+      );
+    }
+
+
+    if (
+      bssid[i] <
+      16
+    ) {
+
+      Serial.print(
+        '0'
+      );
+    }
+
+
+    Serial.print(
+      bssid[i],
+      HEX
+    );
+  }
+
+
+  Serial.println();
+
+
+  WiFi.scanDelete();
+
+
+  return true;
+}
+
+
 void queueNetworkCommand(const String &command) {
 
   if (
@@ -3214,8 +3475,35 @@ void networkTask(
         );
 
 
-        Serial.println(
+        Serial.print(
           (int)status
+        );
+
+
+        Serial.print(
+          " last_reason="
+        );
+
+
+        Serial.print(
+          lastWiFiDisconnectReason
+        );
+
+
+        Serial.print(
+          " ("
+        );
+
+
+        Serial.print(
+          wifiReasonName(
+            lastWiFiDisconnectReason
+          )
+        );
+
+
+        Serial.println(
+          ")"
         );
 
 
@@ -3254,8 +3542,42 @@ void networkTask(
       0
     ) {
 
+      int32_t targetChannel =
+        0;
+
+      int32_t targetRssi =
+        -1000;
+
+      uint8_t targetBssid[6] =
+        {0, 0, 0, 0, 0, 0};
+
+
+      if (
+        !findTargetAccessPoint(
+          targetChannel,
+          targetBssid,
+          targetRssi
+        )
+      ) {
+
+        retryAfter =
+          millis() +
+          WIFI_RETRY_PAUSE_MS;
+
+
+        vTaskDelay(
+          pdMS_TO_TICKS(
+            250
+          )
+        );
+
+
+        continue;
+      }
+
+
       Serial.print(
-        "Wi-Fi connecting to: "
+        "Wi-Fi connecting directly to 2.4 GHz AP for: "
       );
 
 
@@ -3264,14 +3586,21 @@ void networkTask(
       );
 
 
+      lastWiFiDisconnectReason =
+        -1;
+
+
       WiFi.begin(
         EMI_WIFI_SSID,
-        EMI_WIFI_PASSWORD
+        EMI_WIFI_PASSWORD,
+        targetChannel,
+        targetBssid,
+        true
       );
 
 
       attemptStarted =
-        now;
+        millis();
 
       connecting =
         true;
@@ -3285,7 +3614,6 @@ void networkTask(
     );
   }
 }
-
 
 void updateNetworkCommands() {
 
@@ -3360,6 +3688,11 @@ void setup() {
     );
 
 
+  WiFi.onEvent(
+    onWiFiEvent
+  );
+
+
   WiFi.persistent(
     false
   );
@@ -3372,6 +3705,11 @@ void setup() {
 
   WiFi.mode(
     WIFI_STA
+  );
+
+
+  WiFi.setSleep(
+    false
   );
 
 
