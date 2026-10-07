@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **04:00:06 tracked so far** |
-| **Current exact session** | **ACTIVE - 02:09:18 at latest checkpoint** |
+| **Exact tracked development time** | **04:11:01 tracked so far** |
+| **Current exact session** | **ACTIVE - 02:20:13 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 02:09:18** | Work resumed after the break |
-| **Total active tracked work** | **04:00:06** | Break excluded |
+| 2 | **ACTIVE - 02:20:13** | Work resumed after the break |
+| **Total active tracked work** | **04:11:01** | Break excluded |
 
 ---
 
@@ -488,6 +488,16 @@ I confirmed both services are now healthy at the same time:
 That means I can stop touching the Raspberry Pi backend for this milestone and move to the physical microphone upload test on EMI himself.
 
 **Result:** Raspberry Pi voice backend validated end-to-end; next action is flashing the new C3 voice firmware.
+
+---
+
+# 2026-10-07 - I caught one compile issue before flashing voice control
+
+When I went back to hand over the new voice firmware, I spotted a formatting mistake in the include section: the FreeRTOS semaphore include had been written with a literal escaped newline instead of as its own real preprocessor line.
+
+I fixed that in the canonical firmware before flashing. The voice behavior itself did not change.
+
+**Result:** the current GitHub firmware is the corrected voice-control build I should actually flash.
 
 ---
 
