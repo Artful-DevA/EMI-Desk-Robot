@@ -2,6 +2,15 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - ESP32-C3 OLED validation test
+
+### Added
+
+- added a dedicated ESP32-C3 OLED validation sketch
+- test wiring uses SDA GPIO8 and SCL GPIO9
+- test targets the existing SH1106 128x64 I2C OLED
+- OLED contrast is set to 100 for a less harsh brightness level
+
 ## 2026-10-07 - ESP32-C3 empty upload test
 
 ### Added
