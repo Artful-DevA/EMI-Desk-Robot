@@ -49,10 +49,13 @@ Goal: turn the already-verified microphone into a private local speech path.
 - [x] localhost-only whisper.cpp server
 - [x] authenticated in-memory Pi WAV ingestion endpoint
 - [x] require `Emi` wake address for microphone-triggered intents
-- [ ] capture short C3 microphone frames into RAM
-- [ ] stream audio C3 -> Pi
-- [ ] keep raw audio entirely out of disk storage
-- [ ] feed in-memory audio into local Whisper
+- [x] capture short C3 microphone frames into RAM
+- [x] detect short speech with local VAD
+- [x] upload short RAM-only WAV commands C3 -> Pi
+- [x] keep raw command audio out of disk storage in the current path
+- [x] feed uploaded in-memory audio into local Whisper
+- [ ] validate the first physical spoken `Emi, what's the time?` command
+- [ ] tune VAD/audio gain from real room testing if needed
 - [ ] wake/request flow for "Emi..."
 - [ ] push-to-talk mode
 - [ ] explicit always-listen mode
