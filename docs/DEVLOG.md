@@ -18,8 +18,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 | **Previous controller** | ESP32 DevKit V1 |
 | **Verified hardware** | SH1106 OLED, TTP223 touch, I2S microphone |
 | **Current physical form** | Cable Engineering Edition |
-| **Current software milestone** | `SHOW_TIME HH:MM` with eyes-to-clock morph |
-| **Next major milestone** | Spoken "EMI, what time is it?" -> local STT -> `SHOW_TIME` |
+| **Current software milestone** | Pi 400 local Whisper verified + EMI Hub v0.1 time intent |
+| **Next major milestone** | Connect C3 to the hub, then stream mic audio in RAM for spoken time requests |
 | **Last updated** | 2026-10-07 |
 
 > **Privacy-safe exact-time rule:** the public dev log records only durations, never the clock time when work started or ended. During a build session, exact timestamps may be used privately to calculate the duration, but only the resulting duration is published. The older ~45-minute estimate remains legacy history and is never mixed into the exact total.
@@ -239,6 +239,41 @@ Touching EMI during the clock dismisses it and returns directly to interaction.
 The initial 4.5-second clock hold felt too long. It was reduced to **2.0 seconds**, making the whole thing feel like a quick glance instead of opening an app.
 
 **Result:** the screen-side half of "what time is it?" exists.
+
+---
+
+## 2026-10-07 - Local Whisper works on the Pi 400
+
+The Raspberry Pi 400 built current `whisper.cpp` successfully with the ARM CPU backend and BLAS support.
+
+The `tiny.en` model transcribed the bundled 11-second JFK sample correctly.
+
+Measured benchmark:
+
+- source audio: 11.0 seconds
+- wall-clock inference command: 4.411 seconds
+- whisper-reported processing total: 4.207 seconds
+- roughly 2.5x faster than real time for this sample
+
+That is comfortably fast enough for the first short command milestone.
+
+### EMI Hub v0.1
+
+A tiny Raspberry Pi service was added under `hub/`.
+
+For now it intentionally binds only to localhost and accepts recognized text, not audio. It maps a small allow-listed group of time questions to the deterministic `TIME` intent and returns `SHOW_TIME HH:MM`.
+
+Examples include:
+
+- "Emi, what time is it?"
+- "Emi, what's the time?"
+- "Emi, can you tell me the time?"
+- "Emi, tell me the time"
+- "Emi, time?"
+
+The service does not log the original sentence.
+
+**Result:** local STT is proven and the text-to-time-command half of the Pi hub now exists.
 
 ---
 
