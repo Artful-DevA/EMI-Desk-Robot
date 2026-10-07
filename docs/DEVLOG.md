@@ -10,8 +10,8 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **03:09:34 tracked so far** |
-| **Current exact session** | **ACTIVE - 01:18:46 at latest checkpoint** |
+| **Exact tracked development time** | **03:15:36 tracked so far** |
+| **Current exact session** | **ACTIVE - 01:24:48 at latest checkpoint** |
 | **Legacy work before exact tracking** | ~2 hours estimated from the start of the project; not included in the exact total |
 | **Completed exact sessions** | 1 |
 | **Current controller** | ESP32-C3 Super Mini |
@@ -29,7 +29,7 @@ Timing is approximate unless a session was explicitly timed. The goal is an hone
 | Session | Exact duration | Notes |
 | --- | --- | --- |
 | 1 | 01:50:48 | First exact tracked block; ended before a user-reported 1h30m break |
-| 2 | ACTIVE - 01:18:46 at latest checkpoint | Tracking resumed after the 1h30m break |
+| 2 | ACTIVE - 01:24:48 at latest checkpoint | Tracking resumed after the 1h30m break |
 
 ## 2026-10-07 - GPIO 9 retired from OLED duty
 
@@ -51,6 +51,16 @@ The first real Pi-to-EMI clock trigger worked on the physical OLED. Two visual i
 The colon has been shifted 2 pixels to the right. The return transition no longer draws the temporary horizontal eye bars, and the eyes now reopen from a rounded partially-open state instead of a nearly flat 3-pixel shape.
 
 This is the first visual polish pass after the authenticated Pi -> C3 command path was proven end-to-end on hardware.
+
+---
+
+## 2026-10-07 - Clock becomes part of the face
+
+The first layout pass still looked too much like a generic four-digit display. The clock is now laid out using Emi's normal eye geometry rather than arbitrary screen coordinates: the hour pair is centered where the left eye normally lives, the minute pair is centered where the right eye normally lives, and both share the normal eye center line.
+
+The digits were reduced slightly in size and the colon was re-centered. The colon also stays visible for the entire short clock hold; blinking it was visually confusing because the display briefly looked like a plain four-digit number.
+
+A previous suggested standalone replacement also exposed a compile-order problem when pasted above the global OLED object. The canonical firmware avoids that entirely by keeping clock drawing inside the existing full firmware after the `display` object declaration.
 
 ---
 
