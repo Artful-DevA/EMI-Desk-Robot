@@ -8,8 +8,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 
 | Stat | Current value |
 | --- | --- |
-| **Exact tracked development time** | **03:37:52 tracked so far** |
-| **Current exact session** | **ACTIVE - 01:47:04 at latest checkpoint** |
+| **Exact tracked development time** | **03:42:24 tracked so far** |
+| **Current exact session** | **ACTIVE - 01:51:36 at latest checkpoint** |
 | **Excluded break time** | **01:30:00** |
 | **Legacy work before exact tracking** | **~2 hours estimated from the start of the project; not included in the exact total** |
 | **Completed exact sessions** | **1** |
@@ -30,8 +30,8 @@ Timing is exact only from the point where I explicitly started tracking it. Work
 | --- | ---: | --- |
 | 1 | **01:50:48** | First tracked work block |
 | Break | **01:30:00** | Not development time; excluded from totals |
-| 2 | **ACTIVE - 01:47:04** | Work resumed after the break |
-| **Total active tracked work** | **03:37:52** | Break excluded |
+| 2 | **ACTIVE - 01:51:36** | Work resumed after the break |
+| **Total active tracked work** | **03:42:24** | Break excluded |
 
 ---
 
@@ -428,6 +428,18 @@ I also added a dedicated user service for the already-built `whisper-server`, bo
 At this point the Raspberry Pi side of live voice is ready. The remaining missing piece is the C3 side: continuously read the already-validated I2S mic, detect a short spoken phrase, keep it in RAM, and POST it to `/device/audio`.
 
 **Result:** voice control is no longer just a diagram; the Pi now has a real private in-memory audio ingestion/transcription endpoint.
+
+---
+
+# 2026-10-07 - Whisper service startup fix
+
+My first systemd service for `whisper-server` exited immediately after printing its help text. The binary itself was fine; the service argument set was simply more ambitious than necessary for the installed build.
+
+I reduced the service to the minimum arguments EMI actually needs right now: model path, localhost bind address, and port. I also changed the installer so it waits for the Pi to load the model instead of assuming the HTTP server will be ready after exactly one second.
+
+If the server exits early now, the installer prints the full untruncated service status, which should make any future command-line compatibility problem obvious.
+
+**Result:** the Whisper service setup is simpler and easier to diagnose before I touch the working C3 firmware.
 
 ---
 
