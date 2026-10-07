@@ -1,4 +1,12 @@
-# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Authenticated Pi -> C3 command bridge
+# Changelog\n\nThis changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.\n\n## 2026-10-07 - Hub startup check and live time tracking
+
+### Changed
+
+- development log now shows the running exact duration of the active session instead of displaying zero until the session ends
+- EMI Hub installer now waits briefly for the service health endpoint after restart
+- if the hub fails to start, the installer prints service status and recent logs instead of leaving a confusing immediate connection error
+
+## 2026-10-07 - Authenticated Pi -> C3 command bridge
 
 ### Added
 
