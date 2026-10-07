@@ -2,6 +2,21 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-07 - Remove prompt hallucination risk and allow wake word anywhere
+
+### Fixed
+
+- EMI Hub upgraded to v0.7
+- removed the Whisper initial prompt that contained the time command because non-speech sounds such as typing could cause the recognizer to hallucinate the prompted phrase
+- the microphone path still requires an explicit exact wake token plus a deterministic command match before any action is queued
+- wake-word placement is now flexible: `Emi, what's the time?`, `What's the time, Emi?`, and `Time, Emi` are all valid
+- exact wake aliases remain deliberately narrow; fuzzy wake matching is still not allowed
+
+### Safety
+
+- keyboard noise, taps, or other non-speech may still make the VAD upload a clip during diagnostics, but they must not become a TIME action merely because of a Whisper prompt
+- restarting the hub clears any stale queued test commands
+
 ## 2026-10-07 - Improve wake-word recognition and Whisper latency
 
 ### Changed
