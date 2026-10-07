@@ -1,5 +1,7 @@
 # EMI Feature Inventory
 
+EMI is a desk companion and co-worker. He is not intended to be a therapist, confidant, or substitute human friend.
+
 This is the canonical feature inventory for EMI. It should be updated as features are added, removed, redesigned, or explicitly rejected.
 
 ## Personality and physical presence
@@ -106,12 +108,17 @@ Planned language features:
 
 ## Notes and transcripts
 
+Notes are an explicit mode, not a passive transcript of ordinary life.
+
 - "EMI, start taking notes"
-- "EMI, stop notes"
-- continuous transcription session
+- "EMI, stop taking notes"
 - persistent visible notes/listening state
-- transcript storage
-- raw audio disabled by default
+- raw audio is never written to disk
+- ordinary conversation and commands are not stored as transcripts
+- only note-mode transcription is retained
+- note transcripts are saved as Markdown
+- notes can be written automatically into a configured Obsidian vault folder
+- optional date/class-based filenames
 - optional transcript search
 - optional summarization later
 - class note mode
@@ -246,7 +253,10 @@ EMI should not intentionally pretend to forget. Forgetting should be predictable
 
 ## Developer/project features
 
-- GitHub project awareness
+- GitHub project awareness for explicitly selected repositories only
+- read-only project access by default
+- no GitHub-profile crawling
+- no web searching for information about the user
 - CamTune project knowledge
 - local project indexing/search
 - selected external APIs only when explicitly enabled
