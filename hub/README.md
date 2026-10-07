@@ -149,7 +149,7 @@ Check the hub:
 curl -s http://127.0.0.1:17840/health
 ```
 
-The response should report version `0.4` and Whisper on `127.0.0.1:17841`.
+The response should report version `0.5` and Whisper on `127.0.0.1:17841`.
 
 ## Test Whisper without EMI
 
@@ -183,3 +183,12 @@ The current device transport is a trusted-home-LAN prototype.
 Do not expose port 17840 or 17841 directly to the internet.
 
 Before EMI gains privileged desktop actions, the transport should move to a stronger encrypted/authenticated design.
+
+
+## Whisper command tuning
+
+The current hub sends a short initial prompt containing the proper name `Emi` and the current time-command wording. Command requests also disable timestamp and token-timestamp generation because EMI only needs the recognized text.
+
+Wake-word gating remains deterministic rather than fuzzy. The accepted exact spellings cover the most common tiny.en renderings of the spoken name.
+
+For performance diagnostics, the hub logs only Whisper processing duration (for example `voice whisper_ms=...`), never the recognized transcript.
