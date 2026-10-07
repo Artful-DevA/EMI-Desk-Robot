@@ -1,0 +1,14 @@
+[Unit]
+Description=EMI local whisper.cpp server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/whisper.cpp/build/bin/whisper-server --host 127.0.0.1 --port 17841 -m %h/whisper.cpp/models/ggml-tiny.en.bin -l en -nt -nc
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
