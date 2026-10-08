@@ -7,7 +7,7 @@
 #include "secrets.h"
 
 // ============================================================
-// EMI - C3 END-TO-END VOICE + TIMER TEST v4
+// EMI - C3 END-TO-END VOICE + TIMER TEST v5
 //
 // This temporary test isolates the voice path:
 //
@@ -49,7 +49,11 @@ const int BLOCK_SAMPLES = 256;
 // Half a second of pre-roll protects short wake phrases such as
 // "Emi time" from losing the beginning of the name.
 const int PRE_ROLL_SAMPLES = 8000;
-const int MAX_SAMPLES = SAMPLE_RATE * 3;
+
+// Timer phrases are noticeably longer than "Emi time".
+// Five seconds prevents natural commands from being chopped by the
+// hard maximum while still keeping the entire WAV in RAM.
+const int MAX_SAMPLES = SAMPLE_RATE * 5;
 const int MIN_SAMPLES = SAMPLE_RATE / 2;
 
 // About 2 seconds of quiet calibration after Wi-Fi is already connected.
@@ -57,11 +61,17 @@ const int CALIBRATION_BLOCKS = 125;
 
 // This is only an acoustic candidate trigger, NOT a speech detector.
 // Keep it quick so the first syllable of "Emi" is safely inside pre-roll.
-// The Pi's dedicated keyword spotter is the real wake-word authority.
+// The Pi's explicit EMI wake gate is the real wake-word authority.
 const int START_CONFIRM_BLOCKS = 8;
 
-// About 480 ms of quiet ends the phrase.
-const int END_SILENT_BLOCKS = 30;
+// Short phrases should still finish quickly, but longer commands often
+// contain a natural pause after words such as "timer". Once the capture
+// has clearly become a longer phrase, allow a larger silence gap before
+// deciding the user has finished speaking.
+const int END_SILENT_BLOCKS_SHORT = 30;  // ~480 ms
+const int END_SILENT_BLOCKS_LONG = 52;   // ~832 ms
+const int LONG_PHRASE_AFTER_SAMPLES =
+  SAMPLE_RATE * 5 / 4;                   // 1.25 s incl. pre-roll
 
 // Tuned from the real measurements we saw.
 // The sustained requirement is the main false-trigger protection.
@@ -1633,9 +1643,15 @@ void processDetector() {
     silentBlocks++;
   }
 
+  int requiredSilentBlocks =
+    recordedSamples >=
+      LONG_PHRASE_AFTER_SAMPLES
+    ? END_SILENT_BLOCKS_LONG
+    : END_SILENT_BLOCKS_SHORT;
+
   bool endBySilence =
     silentBlocks >=
-    END_SILENT_BLOCKS;
+    requiredSilentBlocks;
 
   bool endByMaximum =
     recordedSamples >=
@@ -1645,6 +1661,46 @@ void processDetector() {
     endBySilence ||
     endByMaximum
   ) {
+    Serial.print(
+      "AUDIO: ending by "
+    );
+
+    Serial.print(
+      endByMaximum
+      ? "maximum"
+      : "silence"
+    );
+
+    Serial.print(
+      " duration_ms="
+    );
+
+    Serial.print(
+      (
+        (unsigned long)
+          recordedSamples *
+        1000UL
+      )
+      /
+      SAMPLE_RATE
+    );
+
+    Serial.print(
+      " silence_blocks="
+    );
+
+    Serial.print(
+      silentBlocks
+    );
+
+    Serial.print(
+      "/"
+    );
+
+    Serial.println(
+      requiredSilentBlocks
+    );
+
     finishCapture();
   }
 }
@@ -1757,6 +1813,9 @@ void setup() {
   );
   Serial.println(
     "Also: Emi how much time is left / Emi cancel timer"
+  );
+  Serial.println(
+    "v5 keeps longer timer phrases open across natural pauses."
   );
   Serial.println(
     "================================"

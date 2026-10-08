@@ -2,6 +2,23 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-08 - Stop chopping longer timer phrases
+
+### Changed
+
+- C3 voice/timer diagnostic upgraded to v5
+- increased the maximum RAM-only capture window from 3 seconds to 5 seconds for longer natural commands
+- kept the fast ~480 ms end-of-speech timeout for short phrases
+- once a capture is clearly a longer phrase, EMI now tolerates about 830 ms of silence before ending the clip
+- this specifically prevents natural pauses around words such as `timer` from prematurely splitting `Emi set a timer for 30 seconds`
+- added privacy-safe Serial diagnostics showing whether a capture ended by silence or by the hard maximum, plus duration and silence-block counts
+- no wake-word, timer-parser, or confidence thresholds were changed in this iteration
+
+### Why
+
+- the C3 does not understand the word `timer`; if capture appeared to stop at that word, the acoustic end-of-speech logic was the likely culprit
+- the previous 480 ms silence cutoff and 3-second hard limit were tuned for short commands such as `Emi time`, not longer timer sentences
+
 ## 2026-10-08 - Add working voice timers
 
 ### Added

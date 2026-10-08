@@ -701,6 +701,20 @@ The final visual design is intentionally deferred: later the timer will animate 
 
 ---
 
+# 2026-10-08 - I stopped the C3 from cutting timer sentences in half
+
+When I tried longer timer commands, it felt like EMI stopped listening around the word "timer". The C3 cannot actually know which word I am saying at that point, so I looked at the acoustic capture rules instead of changing the recognizer again.
+
+The voice test was still using the timing that worked for "Emi time": about 480 ms of silence ended a clip, and the hard maximum was only three seconds. That is too aggressive for a sentence such as "Emi set a timer for 30 seconds", especially if I naturally pause after "timer".
+
+I kept the short-command behavior fast, but made the end-of-speech timeout adaptive. Short captures still close after about 480 ms of quiet. Once the capture is clearly a longer phrase, it allows about 830 ms of quiet, and the hard RAM-only maximum is now five seconds.
+
+I also added Serial-only diagnostics that report whether the recording ended because of silence or the maximum duration. They do not log transcripts or save audio.
+
+**Result:** this iteration fixes the capture boundary first without touching wake-word confidence or adding another recognition framework.
+
+---
+
 # Current state
 
 Right now I have a real networked EMI prototype with:
