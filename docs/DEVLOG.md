@@ -739,6 +739,20 @@ I fixed the installer so updating EMI Hub also refreshes the Whisper user servic
 
 ---
 
+# 2026-10-08 - I proved the C3 was sending HTTP headers but not the WAV body
+
+I captured the actual C3-to-Pi TCP traffic instead of changing another recognizer threshold. The network handshake was healthy in both directions, and the Pi acknowledged the request headers. On the failing voice POSTs, though, the C3 stopped after roughly 290 bytes of HTTP headers and never sent the declared WAV body. The ESP32 then reported HTTP error `-3`.
+
+That means the timer parser, Vosk, Whisper, firewall, and Pi listening socket were not the cause of this failure. The hub was simply waiting for audio bytes that never arrived.
+
+I changed the v7 C3 diagnostic uploader to use the raw Wi-Fi client and stream the existing RAM-only WAV in 1024-byte chunks. It retries partial socket writes and prints privacy-safe byte counts so I can see exactly how far an upload gets without logging or storing the audio itself.
+
+I did not retune the endpoint detector in this change. One physical attempt already ended correctly after about 800 ms of quiet, while another hit the five-second safety maximum, so the upload failure needed to be isolated first.
+
+**Result:** the next physical test should either send the complete WAV and reach the hub recognizers, or report the exact byte offset where the C3 network write stalls.
+
+---
+
 # Current state
 
 Right now I have a real networked EMI prototype with:

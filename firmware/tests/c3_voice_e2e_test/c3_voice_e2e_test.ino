@@ -7,7 +7,7 @@
 #include "secrets.h"
 
 // ============================================================
-// EMI - C3 END-TO-END VOICE + TIMER TEST v6
+// EMI - C3 END-TO-END VOICE + TIMER TEST v7
 //
 // This temporary test isolates the voice path:
 //
@@ -1209,6 +1209,272 @@ void showHubResult(
 // UPLOAD
 // ------------------------------------------------------------
 
+const size_t HTTP_UPLOAD_CHUNK_BYTES = 1024;
+const unsigned long HTTP_SEND_STALL_TIMEOUT_MS = 5000;
+const unsigned long HTTP_RESPONSE_TIMEOUT_MS = 30000;
+
+
+bool writeClientAll(
+  WiFiClient &client,
+  const uint8_t *data,
+  size_t length,
+  bool reportProgress = false
+) {
+  size_t sent = 0;
+  size_t nextReport = 16384;
+
+  unsigned long lastProgress =
+    millis();
+
+  while (sent < length) {
+    if (!client.connected()) {
+      Serial.print(
+        "UPLOAD: connection closed after "
+      );
+
+      Serial.print(sent);
+      Serial.print("/");
+      Serial.print(length);
+      Serial.println(" bytes.");
+
+      return false;
+    }
+
+    size_t remaining =
+      length - sent;
+
+    size_t chunk =
+      min(
+        HTTP_UPLOAD_CHUNK_BYTES,
+        remaining
+      );
+
+    size_t written =
+      client.write(
+        data + sent,
+        chunk
+      );
+
+    if (written > 0) {
+      sent += written;
+      lastProgress = millis();
+
+      if (
+        reportProgress &&
+        (
+          sent >= nextReport ||
+          sent == length
+        )
+      ) {
+        Serial.print(
+          "UPLOAD: sent "
+        );
+
+        Serial.print(sent);
+        Serial.print("/");
+        Serial.print(length);
+        Serial.println(" bytes.");
+
+        while (
+          nextReport <= sent
+        ) {
+          nextReport += 16384;
+        }
+      }
+
+      continue;
+    }
+
+    if (
+      millis() - lastProgress >=
+      HTTP_SEND_STALL_TIMEOUT_MS
+    ) {
+      Serial.print(
+        "UPLOAD: stalled after "
+      );
+
+      Serial.print(sent);
+      Serial.print("/");
+      Serial.print(length);
+      Serial.println(" bytes.");
+
+      return false;
+    }
+
+    delay(1);
+  }
+
+  return true;
+}
+
+
+bool readHttpResponse(
+  WiFiClient &client,
+  int &status,
+  String &body
+) {
+  status = -1;
+  body = "";
+
+  unsigned long started =
+    millis();
+
+  while (
+    !client.available() &&
+    client.connected() &&
+    millis() - started <
+      HTTP_RESPONSE_TIMEOUT_MS
+  ) {
+    delay(5);
+  }
+
+  if (!client.available()) {
+    Serial.println(
+      "HTTP response timed out."
+    );
+
+    return false;
+  }
+
+  client.setTimeout(
+    HTTP_RESPONSE_TIMEOUT_MS /
+    1000UL
+  );
+
+  String statusLine =
+    client.readStringUntil('\n');
+
+  statusLine.trim();
+
+  Serial.print(
+    "HTTP status line: "
+  );
+
+  Serial.println(
+    statusLine
+  );
+
+  int firstSpace =
+    statusLine.indexOf(' ');
+
+  if (firstSpace < 0) {
+    return false;
+  }
+
+  int secondSpace =
+    statusLine.indexOf(
+      ' ',
+      firstSpace + 1
+    );
+
+  String statusText =
+    secondSpace > firstSpace
+    ? statusLine.substring(
+        firstSpace + 1,
+        secondSpace
+      )
+    : statusLine.substring(
+        firstSpace + 1
+      );
+
+  status =
+    statusText.toInt();
+
+  int contentLength = -1;
+
+  while (true) {
+    String line =
+      client.readStringUntil('\n');
+
+    line.trim();
+
+    if (line.length() == 0) {
+      break;
+    }
+
+    if (
+      line.startsWith(
+        "Content-Length:"
+      ) ||
+      line.startsWith(
+        "content-length:"
+      )
+    ) {
+      int colon =
+        line.indexOf(':');
+
+      if (colon >= 0) {
+        String value =
+          line.substring(
+            colon + 1
+          );
+
+        value.trim();
+
+        contentLength =
+          value.toInt();
+      }
+    }
+  }
+
+  unsigned long bodyStarted =
+    millis();
+
+  if (contentLength >= 0) {
+    body.reserve(
+      contentLength + 1
+    );
+
+    while (
+      (int)body.length() <
+        contentLength &&
+      millis() - bodyStarted <
+        HTTP_RESPONSE_TIMEOUT_MS
+    ) {
+      while (
+        client.available() &&
+        (int)body.length() <
+          contentLength
+      ) {
+        body +=
+          (char)client.read();
+      }
+
+      if (
+        !client.connected() &&
+        !client.available()
+      ) {
+        break;
+      }
+
+      delay(1);
+    }
+  }
+
+  else {
+    while (
+      (
+        client.connected() ||
+        client.available()
+      ) &&
+      millis() - bodyStarted <
+        HTTP_RESPONSE_TIMEOUT_MS
+    ) {
+      while (
+        client.available()
+      ) {
+        body +=
+          (char)client.read();
+      }
+
+      delay(1);
+    }
+  }
+
+  return true;
+}
+
+
 void uploadCapture() {
   if (
     recordedSamples <
@@ -1218,7 +1484,6 @@ void uploadCapture() {
       "Capture too short; ignored."
     );
 
-    // Too-short acoustic candidates stay invisible on the OLED.
     return;
   }
 
@@ -1226,53 +1491,32 @@ void uploadCapture() {
     (uint32_t)recordedSamples *
     sizeof(int16_t);
 
+  uint32_t wavBytes =
+    44 + pcmBytes;
+
   writeWavHeader(
     wavBuffer,
     pcmBytes
   );
 
-  WiFiClient client;
-  HTTPClient http;
-
-  String url =
-    "http://" +
-    String(EMI_HUB_HOST) +
-    ":" +
-    String(EMI_HUB_PORT) +
-    "/device/audio";
-
-  http.setConnectTimeout(
-    1500
-  );
-
-  http.setTimeout(
-    30000
-  );
-
   if (
-    !http.begin(
-      client,
-      url
-    )
+    WiFi.status() !=
+    WL_CONNECTED
   ) {
     Serial.println(
-      "HTTP begin failed."
+      "UPLOAD: Wi-Fi is not connected."
     );
+
     return;
   }
 
-  http.addHeader(
-    "X-EMI-Token",
-    EMI_SHARED_TOKEN
+  WiFiClient client;
+
+  client.setTimeout(
+    HTTP_RESPONSE_TIMEOUT_MS /
+    1000UL
   );
 
-  http.addHeader(
-    "Content-Type",
-    "audio/wav"
-  );
-
-  // Do not change the OLED while checking an acoustic candidate.
-  // Typing/tapping may create candidates but must remain invisible.
   Serial.print(
     "Uploading "
   );
@@ -1281,20 +1525,101 @@ void uploadCapture() {
     recordedSamples
   );
 
-  Serial.println(
-    " samples from RAM..."
+  Serial.print(
+    " samples / "
   );
 
-  int status =
-    http.POST(
-      wavBuffer,
-      44 + pcmBytes
+  Serial.print(
+    wavBytes
+  );
+
+  Serial.println(
+    " WAV bytes from RAM..."
+  );
+
+  if (
+    !client.connect(
+      EMI_HUB_HOST,
+      EMI_HUB_PORT
+    )
+  ) {
+    Serial.println(
+      "UPLOAD: TCP connect failed."
     );
 
-  String body =
-    http.getString();
+    return;
+  }
 
-  http.end();
+  String request =
+    "POST /device/audio HTTP/1.1\r\n"
+    "Host: " +
+    String(EMI_HUB_HOST) +
+    ":" +
+    String(EMI_HUB_PORT) +
+    "\r\n"
+    "X-EMI-Token: " +
+    String(EMI_SHARED_TOKEN) +
+    "\r\n"
+    "Content-Type: audio/wav\r\n"
+    "Content-Length: " +
+    String(wavBytes) +
+    "\r\n"
+    "Connection: close\r\n"
+    "\r\n";
+
+  if (
+    !writeClientAll(
+      client,
+      reinterpret_cast<const uint8_t *>(
+        request.c_str()
+      ),
+      request.length(),
+      false
+    )
+  ) {
+    Serial.println(
+      "RESULT: HTTP headers could not be sent."
+    );
+
+    client.stop();
+    return;
+  }
+
+  Serial.println(
+    "UPLOAD: headers sent; streaming WAV..."
+  );
+
+  if (
+    !writeClientAll(
+      client,
+      wavBuffer,
+      wavBytes,
+      true
+    )
+  ) {
+    Serial.println(
+      "RESULT: WAV upload failed before completion."
+    );
+
+    client.stop();
+    return;
+  }
+
+  Serial.println(
+    "UPLOAD: WAV body complete; waiting for hub..."
+  );
+
+  int status = -1;
+  String body;
+
+  bool responseOk =
+    readHttpResponse(
+      client,
+      status,
+      body
+    );
+
+  client.stop();
 
   Serial.print(
     "HTTP status: "
@@ -1304,13 +1629,14 @@ void uploadCapture() {
     status
   );
 
-  if (status != 200) {
+  if (
+    !responseOk ||
+    status != 200
+  ) {
     Serial.println(
       "RESULT: upload/transcription request failed."
     );
 
-    // Network errors stay diagnostic-only; do not make ordinary
-    // acoustic noise look like a user-facing interaction.
     showStatus(
       "VOICE TEST",
       "READY"
@@ -1807,7 +2133,7 @@ void setup() {
     "Also: Emi how much time is left / Emi cancel timer"
   );
   Serial.println(
-    "v6 records until voice activity actually stops."
+    "v7 streams WAV to the Pi in small chunks."
   );
   Serial.println(
     "================================"

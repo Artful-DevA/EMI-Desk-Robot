@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-08 - Stream C3 voice uploads in bounded chunks
+
+### Fixed
+
+- C3 voice/timer diagnostic upgraded to v7
+- replaced the single large `HTTPClient::POST()` WAV send with explicit `WiFiClient` streaming in 1024-byte chunks
+- partial writes are retried instead of treating one short socket write as a complete request failure
+- Serial diagnostics now report upload byte progress, connection closure, stalls, and the returned HTTP status line
+- the authenticated `/device/audio` endpoint, RAM-only audio handling, and server-side recognizers are unchanged
+
+### Why
+
+- packet capture proved that the C3 completed the TCP handshake and sent the HTTP headers, while zero WAV body bytes followed before the ESP32 returned HTTP error `-3`
+- the Pi was not resetting or rejecting the connection; it was waiting for the declared request body
+- streaming the already-buffered WAV in small writes removes the fragile all-at-once payload send while keeping raw audio in RAM only
+
+
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
 ## 2026-10-08 - Keep the installed Whisper service in sync
