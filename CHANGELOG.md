@@ -2,6 +2,23 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-08 - End recording when the audio actually stops
+
+### Changed
+
+- C3 voice/timer diagnostic upgraded to v6
+- removed the short-vs-long phrase endpoint heuristic
+- while recording, every above-threshold voice-energy block refreshes a `lastVoiceActivity` timestamp
+- the clip now ends only after the signal has stayed back at the learned room-noise level for about 800 ms
+- ordinary gaps between words no longer depend on how long the sentence has already been
+- the 5-second RAM capture ceiling remains only as a safety guard against continuous noise or a stuck detector
+- Serial diagnostics now report `audio stopped` plus the measured quiet duration when endpointing normally
+
+### Why
+
+- the desired behavior is simple: once EMI starts a command, keep recording until the speaker stops
+- literal zero audio is impossible in a real room, so the practical definition of "stopped" is a sustained return to the calibrated room-noise floor
+
 ## 2026-10-08 - Stop chopping longer timer phrases
 
 ### Changed

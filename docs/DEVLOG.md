@@ -715,6 +715,20 @@ I also added Serial-only diagnostics that report whether the recording ended bec
 
 ---
 
+# 2026-10-08 - I changed recording to follow the actual end of speech
+
+I simplified the C3 endpoint logic. Instead of deciding that short and long phrases need different silence windows, I now keep a timestamp of the most recent block that still looks like voice energy.
+
+Once recording starts, every above-threshold block pushes that timestamp forward. EMI only closes the clip after the microphone has stayed back at the calibrated room-noise level for about 800 ms.
+
+That is much closer to the behavior I actually want: listen while I am talking, tolerate the gaps between words, and stop when I stop talking.
+
+There is still a five-second hard ceiling because the C3 is buffering the WAV in RAM. That ceiling is only a safety fallback for continuous noise; normal commands should end from the audio-stopped detector first.
+
+**Result:** phrase length no longer decides when EMI stops listening.
+
+---
+
 # Current state
 
 Right now I have a real networked EMI prototype with:

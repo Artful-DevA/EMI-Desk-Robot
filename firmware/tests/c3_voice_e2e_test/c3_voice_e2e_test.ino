@@ -7,7 +7,7 @@
 #include "secrets.h"
 
 // ============================================================
-// EMI - C3 END-TO-END VOICE + TIMER TEST v5
+// EMI - C3 END-TO-END VOICE + TIMER TEST v6
 //
 // This temporary test isolates the voice path:
 //
@@ -64,14 +64,14 @@ const int CALIBRATION_BLOCKS = 125;
 // The Pi's explicit EMI wake gate is the real wake-word authority.
 const int START_CONFIRM_BLOCKS = 8;
 
-// Short phrases should still finish quickly, but longer commands often
-// contain a natural pause after words such as "timer". Once the capture
-// has clearly become a longer phrase, allow a larger silence gap before
-// deciding the user has finished speaking.
-const int END_SILENT_BLOCKS_SHORT = 30;  // ~480 ms
-const int END_SILENT_BLOCKS_LONG = 52;   // ~832 ms
-const int LONG_PHRASE_AFTER_SAMPLES =
-  SAMPLE_RATE * 5 / 4;                   // 1.25 s incl. pre-roll
+// End-of-speech is based on the LAST real voice activity, not on a
+// pre-selected phrase length. EMI keeps recording while the signal stays
+// above the learned room-noise release threshold. Only after the sound has
+// returned to the room baseline for this long is the phrase considered done.
+//
+// The hard MAX_SAMPLES limit still exists only as a safety guard so a fan,
+// sustained noise, or a stuck detector cannot consume RAM forever.
+const unsigned long END_OF_SPEECH_QUIET_MS = 800;
 
 // Tuned from the real measurements we saw.
 // The sustained requirement is the main false-trigger protection.
@@ -112,7 +112,8 @@ bool capturing = false;
 
 int recordedSamples = 0;
 int startConfirmBlocks = 0;
-int silentBlocks = 0;
+
+unsigned long lastVoiceActivityMs = 0;
 
 float noiseFloor = 0.0f;
 float smoothedLevel = 0.0f;
@@ -768,7 +769,7 @@ void calibrateRoom() {
   );
 
   startConfirmBlocks = 0;
-  silentBlocks = 0;
+  lastVoiceActivityMs = 0;
   capturing = false;
   recordedSamples = 0;
 
@@ -1420,8 +1421,8 @@ void syncTimerFromHub() {
 void beginCapture() {
   capturing = true;
   recordedSamples = 0;
-  silentBlocks = 0;
   startConfirmBlocks = 0;
+  lastVoiceActivityMs = millis();
 
   int start =
     (
@@ -1471,8 +1472,8 @@ void finishCapture() {
   uploadCapture();
 
   recordedSamples = 0;
-  silentBlocks = 0;
   startConfirmBlocks = 0;
+  lastVoiceActivityMs = 0;
 
   i2s_zero_dma_buffer(
     I2S_PORT
@@ -1632,26 +1633,25 @@ void processDetector() {
       convertedBlock[i];
   }
 
+  // "Still speaking" means the current acoustic energy is above the
+  // learned release threshold. Every such block pushes the endpoint
+  // forward. Word gaps do not end the clip unless the audio stays back
+  // at room-noise level continuously for END_OF_SPEECH_QUIET_MS.
   if (
     smoothedLevel >
     releaseThreshold
   ) {
-    silentBlocks = 0;
+    lastVoiceActivityMs =
+      millis();
   }
 
-  else {
-    silentBlocks++;
-  }
-
-  int requiredSilentBlocks =
-    recordedSamples >=
-      LONG_PHRASE_AFTER_SAMPLES
-    ? END_SILENT_BLOCKS_LONG
-    : END_SILENT_BLOCKS_SHORT;
+  unsigned long quietForMs =
+    millis() -
+    lastVoiceActivityMs;
 
   bool endBySilence =
-    silentBlocks >=
-    requiredSilentBlocks;
+    quietForMs >=
+    END_OF_SPEECH_QUIET_MS;
 
   bool endByMaximum =
     recordedSamples >=
@@ -1668,7 +1668,7 @@ void processDetector() {
     Serial.print(
       endByMaximum
       ? "maximum"
-      : "silence"
+      : "audio stopped"
     );
 
     Serial.print(
@@ -1686,19 +1686,11 @@ void processDetector() {
     );
 
     Serial.print(
-      " silence_blocks="
-    );
-
-    Serial.print(
-      silentBlocks
-    );
-
-    Serial.print(
-      "/"
+      " quiet_ms="
     );
 
     Serial.println(
-      requiredSilentBlocks
+      quietForMs
     );
 
     finishCapture();
@@ -1815,7 +1807,7 @@ void setup() {
     "Also: Emi how much time is left / Emi cancel timer"
   );
   Serial.println(
-    "v5 keeps longer timer phrases open across natural pauses."
+    "v6 records until voice activity actually stops."
   );
   Serial.println(
     "================================"
