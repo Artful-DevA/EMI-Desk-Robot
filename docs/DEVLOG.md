@@ -729,6 +729,16 @@ There is still a five-second hard ceiling because the C3 is buffering the WAV in
 
 ---
 
+# 2026-10-08 - I found a stale Whisper service install
+
+The Pi showed both services as active, but the running Whisper command line did not include the Silero VAD flags that are present in the repository's current service file. That meant the server itself was alive, but the installed systemd user service was stale.
+
+I fixed the installer so updating EMI Hub also refreshes the Whisper user service first. This keeps the actual process definition aligned with the repository instead of requiring a separate manual Whisper reinstall.
+
+**Result:** future hub updates will no longer silently leave an older Whisper service definition running.
+
+---
+
 # Current state
 
 Right now I have a real networked EMI prototype with:

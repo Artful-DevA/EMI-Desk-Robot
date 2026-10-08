@@ -2,6 +2,19 @@
 
 This changelog starts from the point where the GitHub repository became writable. Earlier breadboard experiments happened before repository tracking.
 
+## 2026-10-08 - Keep the installed Whisper service in sync
+
+### Fixed
+
+- `install-user-service.sh` now refreshes the installed `emi-whisper.service` before restarting the hub
+- this prevents the Pi from running an older user-service definition after the repository has newer Whisper/Silero VAD flags
+- the installer still keeps Whisper bound to localhost only
+
+### Why
+
+- the repository service definition included Silero VAD flags, but the actually running systemd user service was still using an older command line without those flags
+- updating only EMI Hub was not enough to refresh the separate Whisper service file
+
 ## 2026-10-08 - End recording when the audio actually stops
 
 ### Changed

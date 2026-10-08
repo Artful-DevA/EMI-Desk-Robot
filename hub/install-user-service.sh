@@ -10,6 +10,11 @@ mkdir -p "$SERVICE_DIR"
 mkdir -p "$CONFIG_DIR"
 
 echo
+echo "Refreshing local EMI Whisper service..."
+chmod +x "$(dirname "$0")/install-whisper-service.sh"
+"$(dirname "$0")/install-whisper-service.sh"
+
+echo
 echo "Preparing local EMI command recognizer..."
 chmod +x "$(dirname "$0")/install-command-recognizer.sh"
 "$(dirname "$0")/install-command-recognizer.sh"
