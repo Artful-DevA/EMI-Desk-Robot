@@ -745,7 +745,7 @@ I captured the actual C3-to-Pi TCP traffic instead of changing another recognize
 
 That means the timer parser, Vosk, Whisper, firewall, and Pi listening socket were not the cause of this failure. The hub was simply waiting for audio bytes that never arrived.
 
-I changed the v7 C3 diagnostic uploader to use the raw Wi-Fi client and stream the existing RAM-only WAV in 1024-byte chunks. It retries partial socket writes and prints privacy-safe byte counts so I can see exactly how far an upload gets without logging or storing the audio itself.
+I changed the v7 C3 diagnostic uploader to use the raw Wi-Fi client and stream the existing RAM-only WAV in 1024-byte chunks. It retries partial socket writes, keeps a 30-second response timeout while the Pi runs local recognition, and prints privacy-safe byte counts so I can see exactly how far an upload gets without logging or storing the audio itself.
 
 I did not retune the endpoint detector in this change. One physical attempt already ended correctly after about 800 ms of quiet, while another hit the five-second safety maximum, so the upload failure needed to be isolated first.
 

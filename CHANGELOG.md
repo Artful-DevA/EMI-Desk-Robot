@@ -8,6 +8,7 @@
 - replaced the single large `HTTPClient::POST()` WAV send with explicit `WiFiClient` streaming in 1024-byte chunks
 - partial writes are retried instead of treating one short socket write as a complete request failure
 - Serial diagnostics now report upload byte progress, connection closure, stalls, and the returned HTTP status line
+- response reads keep the intended 30-second timeout while the Pi runs local recognition
 - the authenticated `/device/audio` endpoint, RAM-only audio handling, and server-side recognizers are unchanged
 
 ### Why

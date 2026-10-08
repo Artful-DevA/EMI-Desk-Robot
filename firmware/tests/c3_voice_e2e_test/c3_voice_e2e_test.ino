@@ -1337,8 +1337,7 @@ bool readHttpResponse(
   }
 
   client.setTimeout(
-    HTTP_RESPONSE_TIMEOUT_MS /
-    1000UL
+    HTTP_RESPONSE_TIMEOUT_MS
   );
 
   String statusLine =
@@ -1513,8 +1512,7 @@ void uploadCapture() {
   WiFiClient client;
 
   client.setTimeout(
-    HTTP_RESPONSE_TIMEOUT_MS /
-    1000UL
+    HTTP_RESPONSE_TIMEOUT_MS
   );
 
   Serial.print(
