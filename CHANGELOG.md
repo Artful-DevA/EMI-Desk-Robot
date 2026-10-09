@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-09 - Restore the original Emi-time baseline
+
+### Changed
+
+- restored `firmware/tests/c3_voice_e2e_test/c3_voice_e2e_test.ino` to the exact v2 time-only diagnostic from commit `2137a6c`
+- this is the earlier 3-second capture / `HTTPClient::POST()` build that produced a real end-to-end `TIME intent matched` result during physical testing
+- no Raspberry Pi service, hub, Vosk, Whisper, or network configuration was changed
+
+### Why
+
+- after timer work introduced longer captures and upload failures, the next diagnostic is to return to the earlier known-success path and test only `Emi time`
+- Git history still preserves the newer timer/upload experiments for later comparison
+
+
 ## 2026-10-08 - Stream C3 voice uploads in bounded chunks
 
 ### Fixed

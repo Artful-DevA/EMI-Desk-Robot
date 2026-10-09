@@ -798,3 +798,13 @@ The privacy requirement is strict:
 Once that path is working, the existing time feature can become a real spoken interaction instead of a curl command.
 
 ---
+
+---
+
+# 2026-10-09 - I returned to the original Emi-time test
+
+The timer path had accumulated two separate variables at once: longer audio capture and a larger network upload. Before changing either again, I returned the C3 test firmware to the exact v2 time-only diagnostic that had previously produced a real end-to-end TIME match.
+
+I did not change the Raspberry Pi. The current hub can still answer the TIME intent, so this isolates the C3 capture/upload path while keeping the newer backend in place.
+
+**Result:** the next physical test is deliberately narrow again: say `Emi time` and check whether the old short-command path still reaches HTTP 200 and the TIME intent.
