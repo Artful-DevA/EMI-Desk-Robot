@@ -1,3 +1,16 @@
+\n## 2026-10-09 - Add a standalone eyes and petting test
+
+### Added
+
+- added `firmware/tests/c3_eyes_pet_test/c3_eyes_pet_test.ino`
+- isolates Emi's SH1106 eyes, natural idle gaze, blinking, TTP223 pet detection, pet-stroke squint, and relaxed petting blink
+- uses the verified C3 wiring: OLED SDA GPIO 8, OLED SCL GPIO 7, touch OUT GPIO 10
+- deliberately has no Wi-Fi, microphone, Pi, or voice dependency
+
+### Why
+
+- this gives a fast known-simple sketch for checking Emi's face and pet interaction without the current voice/network work affecting the test
+
 # Changelog
 
 ## 2026-10-09 - Restore the original Emi-time baseline

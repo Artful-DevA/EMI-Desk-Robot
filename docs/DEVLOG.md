@@ -808,3 +808,13 @@ The timer path had accumulated two separate variables at once: longer audio capt
 I did not change the Raspberry Pi. The current hub can still answer the TIME intent, so this isolates the C3 capture/upload path while keeping the newer backend in place.
 
 **Result:** the next physical test is deliberately narrow again: say `Emi time` and check whether the old short-command path still reaches HTTP 200 and the TIME intent.
+
+---
+
+# 2026-10-09 - I made a clean eyes-and-petting test
+
+I needed a quick way to run Emi as Emi again without involving the voice stack. I split the proven face and TTP223 interaction behavior into a standalone C3 sketch.
+
+It keeps the normal rounded eyes, random gaze, natural blinking, touch debouncing, the short petting grace period, the little squint on each pat, and the slower relaxed blink after several pats. It uses only the OLED and touch sensor, so Wi-Fi, Whisper, the microphone, and the Raspberry Pi cannot interfere with this test.
+
+**Result:** I can flash one small sketch and immediately verify the face and pet interaction on the physical robot.
